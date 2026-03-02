@@ -1,0 +1,248 @@
+
+services:
+  kafka-0:
+    image: bitnamilegacy/kafka:3.4
+    ports:
+      - "9094:9094"
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
+      - KAFKA_CFG_LISTENERS=CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=BROKER://kafka-0:9091,EXTERNAL://kafka-0:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:SASL_SSL,BROKER:SASL_SSL,EXTERNAL:SASL_SSL
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=BROKER
+      - KAFKA_CFG_SASL_MECHANISM_CONTROLLER_PROTOCOL=PLAIN
+      - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
+      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_CONTROLLER=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_BROKER=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_EXTERNAL=PLAIN
+      - KAFKA_CFG_AUTHORIZER_CLASS_NAME=org.apache.kafka.metadata.authorizer.StandardAuthorizer
+      - KAFKA_CFG_SUPER_USERS=User:admin
+      - KAFKA_CFG_ALLOW_EVERYONE_IF_NO_ACL_FOUND=false
+      - KAFKA_TLS_TYPE=jks
+      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=password
+      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=password
+      - KAFKA_CFG_SSL_KEY_PASSWORD=password
+      - KAFKA_CFG_SSL_CLIENT_AUTH=none
+      - KAFKA_CLIENT_USERS=admin,client,producer,consumer
+      - KAFKA_CLIENT_PASSWORDS=admin-secret,client-secret,producer-secret,consumer-secret
+      - KAFKA_CONTROLLER_USER=admin
+      - KAFKA_CONTROLLER_PASSWORD=admin-secret
+    volumes:
+      - kafka_0_data:/bitnami/kafka
+      - ./kafka-creds/kafka-0-creds:/bitnami/kafka/config/certs
+    networks:
+      - kafka-network
+
+  kafka-1:
+    image: bitnamilegacy/kafka:3.4
+    ports:
+      - "9095:9095"
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
+      - KAFKA_CFG_LISTENERS=CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9095
+      - KAFKA_CFG_ADVERTISED_LISTENERS=BROKER://kafka-1:9091,EXTERNAL://kafka-1:9095
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:SASL_SSL,BROKER:SASL_SSL,EXTERNAL:SASL_SSL
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=BROKER
+      - KAFKA_CFG_SASL_MECHANISM_CONTROLLER_PROTOCOL=PLAIN
+      - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
+      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_CONTROLLER=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_BROKER=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_EXTERNAL=PLAIN
+      - KAFKA_CFG_AUTHORIZER_CLASS_NAME=org.apache.kafka.metadata.authorizer.StandardAuthorizer
+      - KAFKA_CFG_SUPER_USERS=User:admin
+      - KAFKA_CFG_ALLOW_EVERYONE_IF_NO_ACL_FOUND=false
+      - KAFKA_TLS_TYPE=jks
+      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=password
+      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=password
+      - KAFKA_CFG_SSL_KEY_PASSWORD=password
+      - KAFKA_CFG_SSL_CLIENT_AUTH=none
+      - KAFKA_CLIENT_USERS=admin,client,producer,consumer
+      - KAFKA_CLIENT_PASSWORDS=admin-secret,client-secret,producer-secret,consumer-secret
+      - KAFKA_CONTROLLER_USER=admin
+      - KAFKA_CONTROLLER_PASSWORD=admin-secret
+    volumes:
+      - kafka_1_data:/bitnami/kafka
+      - ./kafka-creds/kafka-1-creds:/bitnami/kafka/config/certs
+    networks:
+      - kafka-network
+
+  kafka-2:
+    image: bitnamilegacy/kafka:3.4
+    ports:
+      - "9096:9096"
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      - KAFKA_KRAFT_CLUSTER_ID=abcdefghijklmnopqrstuv
+      - KAFKA_CFG_LISTENERS=CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9096
+      - KAFKA_CFG_ADVERTISED_LISTENERS=BROKER://kafka-2:9091,EXTERNAL://kafka-2:9096
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:SASL_SSL,BROKER:SASL_SSL,EXTERNAL:SASL_SSL
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=BROKER
+      - KAFKA_CFG_SASL_MECHANISM_CONTROLLER_PROTOCOL=PLAIN
+      - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
+      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_CONTROLLER=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_BROKER=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_EXTERNAL=PLAIN
+      - KAFKA_CFG_AUTHORIZER_CLASS_NAME=org.apache.kafka.metadata.authorizer.StandardAuthorizer
+      - KAFKA_CFG_SUPER_USERS=User:admin
+      - KAFKA_CFG_ALLOW_EVERYONE_IF_NO_ACL_FOUND=false
+      - KAFKA_TLS_TYPE=jks
+      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=password
+      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=password
+      - KAFKA_CFG_SSL_KEY_PASSWORD=password
+      - KAFKA_CFG_SSL_CLIENT_AUTH=none
+      - KAFKA_CLIENT_USERS=admin,client,producer,consumer
+      - KAFKA_CLIENT_PASSWORDS=admin-secret,client-secret,producer-secret,consumer-secret
+      - KAFKA_CONTROLLER_USER=admin
+      - KAFKA_CONTROLLER_PASSWORD=admin-secret
+    volumes:
+      - kafka_2_data:/bitnami/kafka
+      - ./kafka-creds/kafka-2-creds:/bitnami/kafka/config/certs
+    networks:
+      - kafka-network
+
+  kafka-3:
+    image: bitnamilegacy/kafka:3.4
+    ports:
+      - "9094:9094"
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-3:9093,1@kafka-4:9093,2@kafka-5:9093
+      - KAFKA_KRAFT_CLUSTER_ID=dhdhhsdfewfkejvnwkj
+      - KAFKA_CFG_LISTENERS=CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=BROKER://kafka-3:9091,EXTERNAL://kafka-3:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:SASL_SSL,BROKER:SASL_SSL,EXTERNAL:SASL_SSL
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=BROKER
+      - KAFKA_CFG_SASL_MECHANISM_CONTROLLER_PROTOCOL=PLAIN
+      - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
+      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_CONTROLLER=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_BROKER=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_EXTERNAL=PLAIN
+      - KAFKA_CFG_AUTHORIZER_CLASS_NAME=org.apache.kafka.metadata.authorizer.StandardAuthorizer
+      - KAFKA_CFG_SUPER_USERS=User:admin
+      - KAFKA_CFG_ALLOW_EVERYONE_IF_NO_ACL_FOUND=false
+      - KAFKA_TLS_TYPE=jks
+      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=password
+      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=password
+      - KAFKA_CFG_SSL_KEY_PASSWORD=password
+      - KAFKA_CFG_SSL_CLIENT_AUTH=none
+      - KAFKA_CLIENT_USERS=admin,client,producer,consumer
+      - KAFKA_CLIENT_PASSWORDS=admin-secret,client-secret,producer-secret,consumer-secret
+      - KAFKA_CONTROLLER_USER=admin
+      - KAFKA_CONTROLLER_PASSWORD=admin-secret
+    volumes:
+      - kafka_3_data:/bitnami/kafka
+      - ./kafka-creds/kafka-3-creds:/bitnami/kafka/config/certs
+    networks:
+      - kafka-network
+
+  kafka-4:
+    image: bitnamilegacy/kafka:3.4
+    ports:
+      - "9095:9095"
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-3:9093,1@kafka-4:9093,2@kafka-5:9093
+      - KAFKA_KRAFT_CLUSTER_ID=dhdhhsdfewfkejvnwkj
+      - KAFKA_CFG_LISTENERS=CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9095
+      - KAFKA_CFG_ADVERTISED_LISTENERS=BROKER://kafka-4:9091,EXTERNAL://kafka-4:9095
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:SASL_SSL,BROKER:SASL_SSL,EXTERNAL:SASL_SSL
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=BROKER
+      - KAFKA_CFG_SASL_MECHANISM_CONTROLLER_PROTOCOL=PLAIN
+      - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
+      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_CONTROLLER=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_BROKER=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_EXTERNAL=PLAIN
+      - KAFKA_CFG_AUTHORIZER_CLASS_NAME=org.apache.kafka.metadata.authorizer.StandardAuthorizer
+      - KAFKA_CFG_SUPER_USERS=User:admin
+      - KAFKA_CFG_ALLOW_EVERYONE_IF_NO_ACL_FOUND=false
+      - KAFKA_TLS_TYPE=jks
+      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=password
+      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=password
+      - KAFKA_CFG_SSL_KEY_PASSWORD=password
+      - KAFKA_CFG_SSL_CLIENT_AUTH=none
+      - KAFKA_CLIENT_USERS=admin,client,producer,consumer
+      - KAFKA_CLIENT_PASSWORDS=admin-secret,client-secret,producer-secret,consumer-secret
+      - KAFKA_CONTROLLER_USER=admin
+      - KAFKA_CONTROLLER_PASSWORD=admin-secret
+    volumes:
+      - kafka_4_data:/bitnami/kafka
+      - ./kafka-creds/kafka-4-creds:/bitnami/kafka/config/certs
+    networks:
+      - kafka-network
+
+  kafka-5:
+    image: bitnamilegacy/kafka:3.4
+    ports:
+      - "9096:9096"
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=2
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka-3:9093,1@kafka-4:9093,2@kafka-5:9093
+      - KAFKA_KRAFT_CLUSTER_ID=dhdhhsdfewfkejvnwkj
+      - KAFKA_CFG_LISTENERS=CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9096
+      - KAFKA_CFG_ADVERTISED_LISTENERS=BROKER://kafka-5:9091,EXTERNAL://kafka-5:9096
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:SASL_SSL,BROKER:SASL_SSL,EXTERNAL:SASL_SSL
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=BROKER
+      - KAFKA_CFG_SASL_MECHANISM_CONTROLLER_PROTOCOL=PLAIN
+      - KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL=PLAIN
+      - KAFKA_CFG_SASL_ENABLED_MECHANISMS=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_CONTROLLER=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_BROKER=PLAIN
+      - KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_EXTERNAL=PLAIN
+      - KAFKA_CFG_AUTHORIZER_CLASS_NAME=org.apache.kafka.metadata.authorizer.StandardAuthorizer
+      - KAFKA_CFG_SUPER_USERS=User:admin
+      - KAFKA_CFG_ALLOW_EVERYONE_IF_NO_ACL_FOUND=false
+      - KAFKA_TLS_TYPE=jks
+      - KAFKA_CFG_SSL_KEYSTORE_PASSWORD=password
+      - KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD=password
+      - KAFKA_CFG_SSL_KEY_PASSWORD=password
+      - KAFKA_CFG_SSL_CLIENT_AUTH=none
+      - KAFKA_CLIENT_USERS=admin,client,producer,consumer
+      - KAFKA_CLIENT_PASSWORDS=admin-secret,client-secret,producer-secret,consumer-secret
+      - KAFKA_CONTROLLER_USER=admin
+      - KAFKA_CONTROLLER_PASSWORD=admin-secret
+    volumes:
+      - kafka_5_data:/bitnami/kafka
+      - ./kafka-creds/kafka-5-creds:/bitnami/kafka/config/certs
+    networks:
+      - kafka-network
+
+
+volumes:
+  kafka_0_data:
+  kafka_1_data:
+  kafka_2_data:
+  kafka_3_data:
+  kafka_4_data:
+  kafka_5_data:
+
+networks:
+  kafka-network:
+    driver: bridge
