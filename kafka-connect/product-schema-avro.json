@@ -1,0 +1,148 @@
+{
+  "type": "record",
+  "name": "Product",
+  "namespace": "com.example.kafka",
+  "doc": "Schema for product data",
+  "fields": [
+    {
+      "name": "product_id",
+      "type": "string",
+      "doc": "Unique product identifier"
+    },
+    {
+      "name": "name",
+      "type": "string",
+      "doc": "Product name"
+    },
+    {
+      "name": "description",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Product description"
+    },
+    {
+      "name": "price",
+      "type": ["null", {
+        "type": "record",
+        "name": "Price",
+        "fields": [
+          {
+            "name": "amount",
+            "type": "double"
+          },
+          {
+            "name": "currency",
+            "type": "string"
+          }
+        ]
+      }],
+      "default": null,
+      "doc": "Price information"
+    },
+    {
+      "name": "category",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Product category"
+    },
+    {
+      "name": "brand",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Product brand"
+    },
+    {
+      "name": "stock",
+      "type": ["null", {
+        "type": "record",
+        "name": "Stock",
+        "fields": [
+          {
+            "name": "available",
+            "type": ["null", "int"],
+            "default": null
+          },
+          {
+            "name": "reserved",
+            "type": ["null", "int"],
+            "default": null
+          }
+        ]
+      }],
+      "default": null,
+      "doc": "Stock information"
+    },
+    {
+      "name": "sku",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Stock Keeping Unit"
+    },
+    {
+      "name": "tags",
+      "type": ["null", {
+        "type": "array",
+        "items": "string"
+      }],
+      "default": null,
+      "doc": "Product tags"
+    },
+    {
+      "name": "images",
+      "type": ["null", {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "Image",
+          "fields": [
+            {
+              "name": "url",
+              "type": ["null", "string"],
+              "default": null
+            },
+            {
+              "name": "alt",
+              "type": ["null", "string"],
+              "default": null
+            }
+          ]
+        }
+      }],
+      "default": null,
+      "doc": "Product images"
+    },
+    {
+      "name": "specifications",
+      "type": ["null", {
+        "type": "map",
+        "values": "string"
+      }],
+      "default": null,
+      "doc": "Product specifications (key-value pairs)"
+    },
+    {
+      "name": "created_at",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Creation timestamp in ISO 8601 format"
+    },
+    {
+      "name": "updated_at",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Last update timestamp in ISO 8601 format"
+    },
+    {
+      "name": "index",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Index name for search purposes"
+    },
+    {
+      "name": "store_id",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Store identifier"
+    }
+  ]
+}

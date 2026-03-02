@@ -164,6 +164,57 @@ services:
         - ./kafka-creds/kafka-0-creds:/kafka-creds/source
         - ./kafka-creds/kafka-3-creds:/kafka-creds/target
 
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:7.7.1
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+      - schema-registry
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: "kafka-0:9094,kafka-1:9095,kafka-2:9096"
+      CONNECT_REST_PORT: 8083
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_GROUP_ID: "connect-cluster"
+      CONNECT_CONFIG_STORAGE_TOPIC: "connect-configs"
+      CONNECT_OFFSET_STORAGE_TOPIC: "connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "connect-status"
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_SECURITY_PROTOCOL: "SASL_SSL"
+      CONNECT_SASL_MECHANISM: "PLAIN"
+      CONNECT_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"admin-secret\";"
+      CONNECT_SSL_TRUSTSTORE_LOCATION: "/kafka-creds/kafka.truststore.jks"
+      CONNECT_SSL_TRUSTSTORE_PASSWORD: "password"
+      CONNECT_SSL_TRUSTSTORE_TYPE: "JKS"
+      CONNECT_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
+      CONNECT_CONSUMER_SECURITY_PROTOCOL: "SASL_SSL"
+      CONNECT_CONSUMER_SASL_MECHANISM: "PLAIN"
+      CONNECT_CONSUMER_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"filter_client\" password=\"filter-secret\";"
+      CONNECT_CONSUMER_SSL_TRUSTSTORE_LOCATION: "/kafka-creds/kafka.truststore.jks"
+      CONNECT_CONSUMER_SSL_TRUSTSTORE_PASSWORD: "password"
+      CONNECT_CONSUMER_SSL_TRUSTSTORE_TYPE: "JKS"
+      CONNECT_CONSUMER_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
+      CONNECT_PRODUCER_SECURITY_PROTOCOL: "SASL_SSL"
+      CONNECT_PRODUCER_SASL_MECHANISM: "PLAIN"
+      CONNECT_PRODUCER_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"admin-secret\";"
+      CONNECT_PRODUCER_SSL_TRUSTSTORE_LOCATION: "/kafka-creds/kafka.truststore.jks"
+      CONNECT_PRODUCER_SSL_TRUSTSTORE_PASSWORD: "password"
+      CONNECT_PRODUCER_SSL_TRUSTSTORE_TYPE: "JKS"
+      CONNECT_PRODUCER_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/kafka-connect-plugins"
+    networks:
+      - kafka-network
+    volumes:
+      - kafka-connect-data:/var/lib/kafka-connect
+      - ./kafka-creds/kafka-0-creds:/kafka-creds
+      - ./kafka-connect/plugins:/kafka-connect-plugins
+      - ./kafka-connect/allowed-products.json:/etc/kafka-connect/allowed-products.json:ro
+      - ./kafka-connect/output:/data/output
+
 volumes:
   kafka_0_data:
   kafka_1_data:
@@ -173,6 +224,7 @@ volumes:
   kafka_5_data:
   schema-registry-data:
   mirror-maker-data:
+  kafka-connect-data:
 
 networks:
   kafka-network:

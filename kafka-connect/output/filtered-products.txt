@@ -1,0 +1,4 @@
+
+{price={amount=9999.99, currency=RUB}, product_id=12345, name=Тестовый товар 1, category=Электроника}
+{price={amount=7999.99, currency=RUB}, product_id=54321, name=Тестовый товар 2, category=Электроника}
+{price={amount=14999.99, currency=RUB}, product_id=98765, name=Новый разрешенный товар, category=Электроника}

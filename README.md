@@ -100,25 +100,17 @@ docker compose logs mirror-maker | tail -20
 
 ## Скрипты
 
-### scripts/setup-all.sh
-Единый скрипт настройки для первого кластера, который:
-1. Создаёт конфигурацию клиента
-2. Настраивает внутренние ACL Kafka
-3. Настраивает ACL для Schema Registry
-4. Настраивает интер-брокер коммуникацию
-5. Создаёт топики с правильными ACL
-6. Показывает все настройки
+Каталог `scripts/` содержит скрипты для настройки Kafka, ACL и управления Kafka Connect.
 
-### scripts/setup-target-cluster-acls.sh
-Скрипт настройки для второго (целевого) кластера, который:
-1. Настраивает ACL для admin на целевом кластере
-2. Настраивает интер-брокер коммуникацию для целевого кластера
-3. Настраивает права для MirrorMaker 2
+Подробнее о скриптах см. [scripts/README.md](scripts/README.md)
 
-### scripts/test-replication.sh
-Скрипт тестирования репликации данных между кластерами, который:
-1. Создаёт тестовые сообщения в исходном кластере
-2. Читает сообщения из исходного кластера
+**Основные скрипты:**
+- `setup-all.sh` - настройка первого кластера
+- `setup-target-cluster-acls.sh` - настройка второго кластера
+- `setup-kafka-connect.sh` - настройка Kafka Connect
+- `connector-manager.sh` - управление коннекторами
+- `manage-products.sh` - управление списком разрешённых product_id
+- `test-replication.sh` - тестирование репликации
 
 ## Конфигурация безопасности
 
@@ -186,6 +178,123 @@ docker compose logs kafka-3
 docker exec yandex_kafka7-kafka-0-1 kafka-topics.sh --bootstrap-server kafka-0:9091 --list --command-config /opt/bitnami/kafka/config/client.properties
 docker exec yandex_kafka7-kafka-3-1 kafka-topics.sh --bootstrap-server kafka-3:9091 --list --command-config /opt/bitnami/kafka/config/client.properties
 ```
+
+## Kafka Connect
+
+Kafka Connect сервис настроен для фильтрации данных из топика shops_data_json и записи в файл с использованием Avro формата и Schema Registry.
+
+⚡ **JAR плагин уже скомпилирован и готов к использованию!**
+
+### Настройка Schema Registry
+
+Схемы для товаров хранятся в Schema Registry.
+
+```bash
+# 1. Зарегистрировать схему для товаров
+./scripts/schema-manager.sh register
+
+# 2. Проверить зарегистрированные схемы
+./scripts/schema-manager.sh list
+
+# 3. Получить текущую схему
+./scripts/schema-manager.sh get
+```
+
+### Настройка Kafka Connect
+
+```bash
+# 1. Настроить ACL и топики для Connect
+./scripts/setup-kafka-connect.sh
+
+# 2. Перезапустить Connect для загрузки плагина
+docker compose restart kafka-connect
+
+# 3. Развернуть коннектор
+./scripts/connector-manager.sh deploy
+```
+
+### Сборка плагина (при необходимости)
+
+Если вы измените исходный код трансформера или хотите перекомпилировать JAR:
+
+```bash
+cd kafka-connect
+./build-plugin.sh --force
+```
+
+Скрипт `build-plugin.sh` автоматически использует Maven, если он установлен, или Docker с Maven в противном случае.
+
+### Хранение JAR в репозитории
+
+Для учебных projects скомпилированный JAR хранится в репозитории (`kafka-connect/plugins/lib/`), что упрощает использование без установки Maven.
+
+**Преимущества:**
+- Не требует установки Maven для обычных пользователей
+- Быстрый старт проекта
+- Гарантированная совместимость версий
+
+### Конфигурация с Schema Registry
+
+Kafka Connect настроен для использования Avro формата с Schema Registry:
+
+- **Value Converter**: `io.confluent.connect.avro.AvroConverter`
+- **Schema Registry URL**: `http://schema-registry:8081`
+- **Топик со схемой**: `shops_data_json-value`
+
+Для изменения схемы необходимо:
+1. Обновить файл `kafka-connect/product-schema-avro.json`
+2. Зарегистрировать новую версию: `./scripts/schema-manager.sh register`
+3. Отправить сообщения, соответствующие схеме
+
+### Управление списком разрешенных товаров
+
+CLI скрипт для управления списком product_id, которые пропускаются фильтром:
+
+```bash
+# Показать все разрешенные product_id
+./scripts/manage-products.sh list
+
+# Добавить product_id
+./scripts/manage-products.sh add "99999"
+
+# Удалить product_id
+./scripts/manage-products.sh remove "99999"
+
+# Очистить весь список
+./scripts/manage-products.sh clear
+```
+
+После изменения списка нужно перезапустить Kafka Connect:
+```bash
+docker compose restart kafka-connect
+```
+
+### Управление коннектором
+
+```bash
+# Развернуть коннектор
+./scripts/connector-manager.sh deploy
+
+# Удалить коннектор
+./scripts/connector-manager.sh delete
+
+# Проверить статус коннектора
+./scripts/connector-manager.sh status
+
+# Просмотреть логи
+docker compose logs kafka-connect
+
+# Просмотреть отфильтрованные данные
+cat kafka-connect/output/filtered-products.txt
+```
+
+### Топики Kafka Connect
+
+| Топик            | Назначение                           |
+|------------------|--------------------------------------|
+| connect-configs  | Хранение конфигураций коннекторов    |
+| connect-offsets  | Хранение offset'ов коннекторов       |
+| connect-status   | Хранение статусов коннекторов        |
 
 ## Остановка сервисов
 
