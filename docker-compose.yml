@@ -146,6 +146,24 @@ services:
         - schema-registry-data:/var/lib/schema-registry
         - ./kafka-creds/kafka-0-creds:/kafka-creds
 
+  mirror-maker:
+    image: bitnamilegacy/kafka:3.4
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+      - kafka-3
+      - kafka-4
+      - kafka-5
+    command: /opt/bitnami/kafka/bin/connect-mirror-maker.sh /opt/bitnami/kafka/config/mirror-maker.properties
+    networks:
+        - kafka-network
+    volumes:
+        - mirror-maker-data:/tmp/kafka/connect
+        - ./mirror-maker.properties:/opt/bitnami/kafka/config/mirror-maker.properties:ro
+        - ./kafka-creds/kafka-0-creds:/kafka-creds/source
+        - ./kafka-creds/kafka-3-creds:/kafka-creds/target
+
 volumes:
   kafka_0_data:
   kafka_1_data:
@@ -154,6 +172,7 @@ volumes:
   kafka_4_data:
   kafka_5_data:
   schema-registry-data:
+  mirror-maker-data:
 
 networks:
   kafka-network:

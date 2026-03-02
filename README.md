@@ -1,6 +1,6 @@
 # Yandex Kafka Проект
 
-Учебный проект с двумя кластерами Kafka и Schema Registry.
+Учебный проект с двумя кластерами Kafka и Schema Registry с автоматической репликацией данных.
 
 ## Быстрый старт
 
@@ -10,15 +10,19 @@ docker compose up -d
 
 # Подождать инициализации сервисов (~25 секунд)
 
-# Настройка топиков, пользователей и ACL
+# Настройка топиков, пользователей и ACL для обоих кластеров
 ./scripts/setup-all.sh
+./scripts/setup-target-cluster-acls.sh
+
+# (Опционально) Тестирование репликации
+./scripts/test-replication.sh
 ```
 
 ## Сервисы
 
 ### Кластеры Kafka
-- **Кластер 1**: kafka-0 (9094), kafka-1 (9095), kafka-2 (9096)
-- **Кластер 2**: kafka-3 (9097), kafka-4 (9098), kafka-5 (9099)
+- **Кластер 1 (Source)**: kafka-0 (9094), kafka-1 (9095), kafka-2 (9096)
+- **Кластер 2 (Target)**: kafka-3 (9097), kafka-4 (9098), kafka-5 (9099)
 
 Оба кластера настроены с:
 - SASL_SSL аутентификацией
@@ -27,8 +31,14 @@ docker compose up -d
 
 ### Schema Registry
 - URL: http://localhost:8081
-- Подключен к: Кластер 1
+- Подключен к: Кластер 1 (Source)
 - Хранит схемы в топике `_schemas`
+
+### MirrorMaker 2
+- Реплицирует данные из Кластер 1 в Кластер 2
+- Реплицирует топики автоматически с настройкой `.*` Regex
+- Создаёт топики в целевом кластере с такими же параметрами
+- Реплицирует метаданные о топиках и конфигурации
 
 ## Пользователи и права доступа
 
@@ -42,20 +52,73 @@ docker compose up -d
 
 ## Топики
 
-| Топик      | Партиции | Репликация | Продюсер      | Консьюмеры                         |
-|------------|-----------|------------|---------------|-------------------------------------|
-| shops_data | 3         | 3          | shop_client   | analytic_client, filter_client      |
+| Топик      | Кластер   | Партиции | Репликация | Продюсер      | Консьюмеры                         |
+|------------|-----------|-----------|------------|---------------|-------------------------------------|
+| shops_data | Both      | 3         | 3          | shop_client   | analytic_client, filter_client      |
+
+Все топики из Кластер 1 автоматически реплицируются в Кластер 2 с помощью MirrorMaker 2.
+
+## Репликация данных
+
+### Как работает репликация
+
+1. **MirrorMaker 2** реплицирует все топики из Кластер 1 (Source) в Кластер 2 (Target)
+2. Репликация происходит в реальном времени (с небольшими задержками)
+3. Конфигурация: `source->target.topics = .*` (все топики)
+4. Конфигурация: `source->target.replication.policy.class = org.apache.kafka.connect.mirror.IdentityReplicationPolicy` (сохраняет имена топиков)
+
+### Топики репликации
+
+MirrorMaker 2 автоматически реплицирует:
+- Пользовательские топики (например, `shops_data`)
+- Системные топики (например, `_schemas`)
+- Создаёт служебные топики для отслеживания репликации
+
+### Проверка репликации
+
+```bash
+# Создать тестовое сообщение в кластере 1
+./scripts/test-replication.sh
+
+# Проверить сообщения в кластере 2 (целевой)
+docker exec yandex_kafka7-kafka-3-1 kafka-console-consumer.sh \
+  --bootstrap-server kafka-3:9094 \
+  --topic shops_data \
+  --from-beginning \
+  --max-messages 10 \
+  --consumer.config /opt/bitnami/kafka/config/client.properties
+
+# Список всех топиков в целевом кластере
+docker exec yandex_kafka7-kafka-3-1 kafka-topics.sh \
+  --bootstrap-server kafka-3:9091 \
+  --list \
+  --command-config /opt/bitnami/kafka/config/client.properties
+
+# Статус репликации
+docker compose logs mirror-maker | tail -20
+```
 
 ## Скрипты
 
 ### scripts/setup-all.sh
-Единый скрипт настройки, который:
+Единый скрипт настройки для первого кластера, который:
 1. Создаёт конфигурацию клиента
 2. Настраивает внутренние ACL Kafka
 3. Настраивает ACL для Schema Registry
 4. Настраивает интер-брокер коммуникацию
 5. Создаёт топики с правильными ACL
 6. Показывает все настройки
+
+### scripts/setup-target-cluster-acls.sh
+Скрипт настройки для второго (целевого) кластера, который:
+1. Настраивает ACL для admin на целевом кластере
+2. Настраивает интер-брокер коммуникацию для целевого кластера
+3. Настраивает права для MirrorMaker 2
+
+### scripts/test-replication.sh
+Скрипт тестирования репликации данных между кластерами, который:
+1. Создаёт тестовые сообщения в исходном кластере
+2. Читает сообщения из исходного кластера
 
 ## Конфигурация безопасности
 
@@ -109,6 +172,19 @@ docker compose logs schema-registry
 docker exec yandex_kafka7-kafka-0-1 kafka-acls.sh \
   --bootstrap-server kafka-0:9091 \
   --list
+```
+
+Проверить репликацию:
+```bash
+# Логи MirrorMaker
+docker compose logs mirror-maker
+
+# Ловг целевого кластера
+docker compose logs kafka-3
+
+# Список топиков в обоих кластерах
+docker exec yandex_kafka7-kafka-0-1 kafka-topics.sh --bootstrap-server kafka-0:9091 --list --command-config /opt/bitnami/kafka/config/client.properties
+docker exec yandex_kafka7-kafka-3-1 kafka-topics.sh --bootstrap-server kafka-3:9091 --list --command-config /opt/bitnami/kafka/config/client.properties
 ```
 
 ## Остановка сервисов
