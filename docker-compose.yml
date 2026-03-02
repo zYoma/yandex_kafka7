@@ -119,6 +119,30 @@ services:
       - kafka_5_data:/bitnami/kafka
       - ./kafka-creds/kafka-5-creds:/bitnami/kafka/config/certs
 
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.9.5
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+    ports:
+        - "8081:8081"
+    environment:
+        - SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=SASL_SSL://kafka-0:9094,SASL_SSL://kafka-1:9095,SASL_SSL://kafka-2:9096
+        - SCHEMA_REGISTRY_HOST_NAME=schema-registry
+        - SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081
+        - SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL=SASL_SSL
+        - SCHEMA_REGISTRY_KAFKASTORE_SASL_MECHANISM=PLAIN
+        - SCHEMA_REGISTRY_KAFKASTORE_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="admin-secret";
+        - SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_LOCATION=/kafka-creds/kafka.truststore.jks
+        - SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_PASSWORD=password
+        - SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_TYPE=PKCS12
+        - SCHEMA_REGISTRY_KAFKASTORE_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM=
+    networks:
+        - kafka-network
+    volumes:
+        - schema-registry-data:/var/lib/schema-registry
+        - ./kafka-creds/kafka-0-creds:/kafka-creds
 
 volumes:
   kafka_0_data:
@@ -127,6 +151,7 @@ volumes:
   kafka_3_data:
   kafka_4_data:
   kafka_5_data:
+  schema-registry-data:
 
 networks:
   kafka-network:
