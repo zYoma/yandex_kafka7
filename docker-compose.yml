@@ -18,8 +18,8 @@ x-env-common: &env-common
   KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD: password
   KAFKA_CFG_SSL_KEY_PASSWORD: password
   KAFKA_CFG_SSL_CLIENT_AUTH: none
-  KAFKA_CLIENT_USERS: admin,client,producer,consumer
-  KAFKA_CLIENT_PASSWORDS: admin-secret,client-secret,producer-secret,consumer-secret
+  KAFKA_CLIENT_USERS: admin,shop_client,analytic_client,filter_client
+  KAFKA_CLIENT_PASSWORDS: admin-secret,shop-secret,analytic-secret,filter-secret
   KAFKA_CONTROLLER_USER: admin
   KAFKA_CONTROLLER_PASSWORD: admin-secret
 
@@ -27,6 +27,8 @@ x-service-common: &service-common
   image: bitnamilegacy/kafka:3.4
   networks:
     - kafka-network
+  volumes:
+    - ./kafka-creds/client.properties:/opt/bitnami/kafka/config/client.properties:ro
 
 services:
   kafka-0:
