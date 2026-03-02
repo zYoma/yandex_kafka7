@@ -18,8 +18,8 @@ x-env-common: &env-common
   KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD: password
   KAFKA_CFG_SSL_KEY_PASSWORD: password
   KAFKA_CFG_SSL_CLIENT_AUTH: none
-  KAFKA_CLIENT_USERS: admin,shop_client,analytic_client,filter_client
-  KAFKA_CLIENT_PASSWORDS: admin-secret,shop-secret,analytic-secret,filter-secret
+  KAFKA_CLIENT_USERS: admin,user,shop_client,analytic_client,filter_client
+  KAFKA_CLIENT_PASSWORDS: admin-secret,user-secret,shop-secret,analytic-secret,filter-secret
   KAFKA_CONTROLLER_USER: admin
   KAFKA_CONTROLLER_PASSWORD: admin-secret
 
