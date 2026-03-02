@@ -394,6 +394,24 @@ services:
     networks:
       - kafka-network
     restart: unless-stopped
+  
+  shop:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    command: ["/bin/sh", "-c", "sleep 10 && /app/yandex-kafka shop"]
+    env_file:
+      - ./.env.shop
+    volumes:
+      - ./kafka-creds:/app/ca
+      - ./products_source.json:/app/products_source.json
+    networks:
+      - kafka-network
+    depends_on:
+     - kafka-0
+     - kafka-1
+     - kafka-2
 
 volumes:
   kafka_0_data:

@@ -100,14 +100,15 @@ echo ""
 echo "=== Step 5: Setting up ACLs for topic: ${TOPIC_NAME} ==="
 
 echo "Adding WRITE ACL for shop_client"
-docker exec -i ${KAFKA_CONTAINER} kafka-acls.sh \
-  --bootstrap-server kafka-0:9091 \
-  --command-config ${CLIENT_CONFIG} \
-  --add \
-  --allow-principal User:shop_client \
-  --operation Write \
-  --operation Describe \
-  --topic ${TOPIC_NAME}
+ docker exec -i ${KAFKA_CONTAINER} kafka-acls.sh \
+   --bootstrap-server kafka-0:9091 \
+   --command-config ${CLIENT_CONFIG} \
+   --add \
+   --allow-principal User:shop_client \
+   --operation Write \
+   --operation Describe \
+   --operation Create \
+   --topic ${TOPIC_NAME}
 
 echo "Adding READ ACL for analytic_client"
 docker exec -i ${KAFKA_CONTAINER} kafka-acls.sh \
