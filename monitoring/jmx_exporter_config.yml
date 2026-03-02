@@ -1,0 +1,55 @@
+---
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+whitelistObjectNames: ["kafka.controller:*", "kafka.server:*", "kafka.network:*", "kafka.log:*"]
+blacklistObjectNames: []
+rules:
+  - pattern: "kafka.server<type=(.+), name=(.+)PerSec\\w*><>Count"
+    name: "kafka_server_$1_$2_total"
+    type: COUNTER
+  - pattern: "kafka.server<type=(.+), name=(.+)PerSec\\w*><>OneMinuteRate"
+    name: "kafka_server_$1_$2_rate"
+    type: GAUGE
+  - pattern: "kafka.server<type=(.+), name=(.+)Percent\\w*><>Mean"
+    name: "kafka_server_$1_$2_mean"
+    type: GAUGE
+  - pattern: "kafka.server<type=(.+), name=(.+)Percent\\w*><>50thPercentile"
+    name: "kafka_server_$1_$2_50th_percentile"
+    type: GAUGE
+  - pattern: "kafka.server<type=(.+), name=(.+)Percent\\w*><>99thPercentile"
+    name: "kafka_server_$1_$2_99th_percentile"
+    type: GAUGE
+  - pattern: "kafka.server<type=ReplicaManager, name=(.+)><>Value"
+    name: "kafka_replica_manager_$1"
+    type: GAUGE
+  - pattern: "kafka.server<type=KafkaRequestHandlerPool, name=(.+)><>Value"
+    name: "kafka_request_handler_$1"
+    type: GAUGE
+  - pattern: "kafka.network<type=(.+), name=(.+)><>Value"
+    name: "kafka_network_$1_$2"
+    type: GAUGE
+  - pattern: "kafka.log<type=Log, name=(.+), topic=(.+), partition=(.+)><>Value"
+    name: "kafka_log_$1"
+    label_names:
+      - "topic"
+      - "partition"
+    type: GAUGE
+  - pattern: "kafka.controller<type=(.+), name=(.+)><>Value"
+    name: "kafka_controller_$1_$2"
+    type: GAUGE
+  - pattern: "java.lang<type=Memory><>HeapMemoryUsage"
+    name: "jvm_memory_heap_bytes"
+    labels:
+      area: "heap"
+  - pattern: "java.lang<type=Memory><>NonHeapMemoryUsage"
+    name: "jvm_memory_nonheap_bytes"
+    labels:
+      area: "nonheap"
+  - pattern: "java.lang<type=GarbageCollector, name=(.+)><>CollectionTime"
+    name: "jvm_gc_collection_time_seconds"
+    labels:
+      gc: "$1"
+  - pattern: "java.lang<type=GarbageCollector, name=(.+)><>CollectionCount"
+    name: "jvm_gc_collection_count"
+    labels:
+      gc: "$1"

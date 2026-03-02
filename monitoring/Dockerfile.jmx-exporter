@@ -1,0 +1,17 @@
+FROM eclipse-temurin:11-jre
+
+WORKDIR /opt/jmx-exporter
+
+RUN wget https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_httpserver/0.16.1/jmx_prometheus_httpserver-0.16.1-jar-with-dependencies.jar -O jmx_prometheus_httpserver.jar
+
+COPY entrypoint.sh /opt/jmx-exporter/entrypoint.sh
+RUN chmod +x /opt/jmx-exporter/entrypoint.sh
+
+EXPOSE 7071
+
+ENV JMX_HOST=localhost
+ENV JMX_PORT=9999
+ENV JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+ENV JMX_EXPORTER_PORT=7071
+
+CMD ["/opt/jmx-exporter/entrypoint.sh"]

@@ -1,0 +1,38 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: "kafka-monitoring"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - "alertmanager:9093"
+
+rule_files:
+  - "/etc/prometheus/alerts.yml"
+
+scrape_configs:
+  - job_name: "kafka-cluster-1"
+    static_configs:
+      - targets:
+          - "kafka-0-jmx:7071"
+          - "kafka-1-jmx:7071"
+          - "kafka-2-jmx:7071"
+        labels:
+          cluster: "cluster-1"
+
+  - job_name: "kafka-cluster-2"
+    static_configs:
+      - targets:
+          - "kafka-3-jmx:7071"
+          - "kafka-4-jmx:7071"
+          - "kafka-5-jmx:7071"
+        labels:
+          cluster: "cluster-2"
+
+  - job_name: "prometheus"
+    static_configs:
+      - targets:
+          - "localhost:9090"

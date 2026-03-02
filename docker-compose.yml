@@ -35,6 +35,7 @@ services:
     <<: *service-common
     ports:
       - "9094:9094"
+      - "9999:9999"
     environment:
       <<: *env-common
       KAFKA_CFG_NODE_ID: 0
@@ -42,14 +43,34 @@ services:
       KAFKA_KRAFT_CLUSTER_ID: abcdefghijklmnopqrstuv
       KAFKA_CFG_LISTENERS: CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9094
       KAFKA_CFG_ADVERTISED_LISTENERS: BROKER://kafka-0:9091,EXTERNAL://kafka-0:9094
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka-0"
     volumes:
       - kafka_0_data:/bitnami/kafka
       - ./kafka-creds/kafka-0-creds:/bitnami/kafka/config/certs
+
+  kafka-0-jmx:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.jmx-exporter
+    container_name: kafka-0-jmx
+    ports:
+      - "7071:7071"
+    environment:
+      - JMX_HOST=kafka-0
+      - JMX_PORT=9999
+      - JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+    volumes:
+      - ./monitoring/jmx_exporter_config.yml:/opt/jmx-exporter/config.yml:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-0
 
   kafka-1:
     <<: *service-common
     ports:
       - "9095:9095"
+      - "9998:9999"
     environment:
       <<: *env-common
       KAFKA_CFG_NODE_ID: 1
@@ -57,14 +78,34 @@ services:
       KAFKA_KRAFT_CLUSTER_ID: abcdefghijklmnopqrstuv
       KAFKA_CFG_LISTENERS: CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9095
       KAFKA_CFG_ADVERTISED_LISTENERS: BROKER://kafka-1:9091,EXTERNAL://kafka-1:9095
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka-1"
     volumes:
       - kafka_1_data:/bitnami/kafka
       - ./kafka-creds/kafka-1-creds:/bitnami/kafka/config/certs
+
+  kafka-1-jmx:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.jmx-exporter
+    container_name: kafka-1-jmx
+    ports:
+      - "7072:7071"
+    environment:
+      - JMX_HOST=kafka-1
+      - JMX_PORT=9999
+      - JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+    volumes:
+      - ./monitoring/jmx_exporter_config.yml:/opt/jmx-exporter/config.yml:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-1
 
   kafka-2:
     <<: *service-common
     ports:
       - "9096:9096"
+      - "9997:9999"
     environment:
       <<: *env-common
       KAFKA_CFG_NODE_ID: 2
@@ -72,14 +113,34 @@ services:
       KAFKA_KRAFT_CLUSTER_ID: abcdefghijklmnopqrstuv
       KAFKA_CFG_LISTENERS: CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9096
       KAFKA_CFG_ADVERTISED_LISTENERS: BROKER://kafka-2:9091,EXTERNAL://kafka-2:9096
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka-2"
     volumes:
       - kafka_2_data:/bitnami/kafka
       - ./kafka-creds/kafka-2-creds:/bitnami/kafka/config/certs
+
+  kafka-2-jmx:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.jmx-exporter
+    container_name: kafka-2-jmx
+    ports:
+      - "7073:7071"
+    environment:
+      - JMX_HOST=kafka-2
+      - JMX_PORT=9999
+      - JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+    volumes:
+      - ./monitoring/jmx_exporter_config.yml:/opt/jmx-exporter/config.yml:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-2
 
   kafka-3:
     <<: *service-common
     ports:
       - "9097:9094"
+      - "9996:9999"
     environment:
       <<: *env-common
       KAFKA_CFG_NODE_ID: 0
@@ -87,14 +148,34 @@ services:
       KAFKA_KRAFT_CLUSTER_ID: X4qbPcTiSofpt9Hj2fmKtA==
       KAFKA_CFG_LISTENERS: CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9094
       KAFKA_CFG_ADVERTISED_LISTENERS: BROKER://kafka-3:9091,EXTERNAL://kafka-3:9094
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka-3"
     volumes:
       - kafka_3_data:/bitnami/kafka
       - ./kafka-creds/kafka-3-creds:/bitnami/kafka/config/certs
+
+  kafka-3-jmx:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.jmx-exporter
+    container_name: kafka-3-jmx
+    ports:
+      - "7074:7071"
+    environment:
+      - JMX_HOST=kafka-3
+      - JMX_PORT=9999
+      - JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+    volumes:
+      - ./monitoring/jmx_exporter_config.yml:/opt/jmx-exporter/config.yml:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-3
 
   kafka-4:
     <<: *service-common
     ports:
       - "9098:9095"
+      - "9995:9999"
     environment:
       <<: *env-common
       KAFKA_CFG_NODE_ID: 1
@@ -102,14 +183,34 @@ services:
       KAFKA_KRAFT_CLUSTER_ID: X4qbPcTiSofpt9Hj2fmKtA==
       KAFKA_CFG_LISTENERS: CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9095
       KAFKA_CFG_ADVERTISED_LISTENERS: BROKER://kafka-4:9091,EXTERNAL://kafka-4:9095
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka-4"
     volumes:
       - kafka_4_data:/bitnami/kafka
       - ./kafka-creds/kafka-4-creds:/bitnami/kafka/config/certs
+
+  kafka-4-jmx:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.jmx-exporter
+    container_name: kafka-4-jmx
+    ports:
+      - "7075:7071"
+    environment:
+      - JMX_HOST=kafka-4
+      - JMX_PORT=9999
+      - JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+    volumes:
+      - ./monitoring/jmx_exporter_config.yml:/opt/jmx-exporter/config.yml:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-4
 
   kafka-5:
     <<: *service-common
     ports:
       - "9099:9096"
+      - "9994:9999"
     environment:
       <<: *env-common
       KAFKA_CFG_NODE_ID: 2
@@ -117,9 +218,28 @@ services:
       KAFKA_KRAFT_CLUSTER_ID: X4qbPcTiSofpt9Hj2fmKtA==
       KAFKA_CFG_LISTENERS: CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9096
       KAFKA_CFG_ADVERTISED_LISTENERS: BROKER://kafka-5:9091,EXTERNAL://kafka-5:9096
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka-5"
     volumes:
       - kafka_5_data:/bitnami/kafka
       - ./kafka-creds/kafka-5-creds:/bitnami/kafka/config/certs
+
+  kafka-5-jmx:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.jmx-exporter
+    container_name: kafka-5-jmx
+    ports:
+      - "7076:7071"
+    environment:
+      - JMX_HOST=kafka-5
+      - JMX_PORT=9999
+      - JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+    volumes:
+      - ./monitoring/jmx_exporter_config.yml:/opt/jmx-exporter/config.yml:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-5
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.9.5
@@ -215,6 +335,66 @@ services:
       - ./kafka-connect/allowed-products.json:/etc/kafka-connect/allowed-products.json:ro
       - ./kafka-connect/output:/data/output
 
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    networks:
+      - kafka-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.2.4
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/kafka-dashboard.json:ro
+      - ./monitoring/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/provision-dashboards.yml:ro
+      - ./monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+    depends_on:
+      - prometheus
+    networks:
+      - kafka-network
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+      - "--web.external-url=http://localhost:9093"
+      - "--cluster.listen-address="
+      - "--cluster.advertise-address="
+      - "--cluster.peer="
+    networks:
+      - kafka-network
+    restart: unless-stopped
+
 volumes:
   kafka_0_data:
   kafka_1_data:
@@ -225,6 +405,9 @@ volumes:
   schema-registry-data:
   mirror-maker-data:
   kafka-connect-data:
+  prometheus-data:
+  grafana-data:
+  alertmanager-data:
 
 networks:
   kafka-network:

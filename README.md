@@ -296,6 +296,171 @@ cat kafka-connect/output/filtered-products.txt
 | connect-offsets  | Хранение offset'ов коннекторов       |
 | connect-status   | Хранение статусов коннекторов        |
 
+## Мониторинг Kafka
+
+Проект включает полнофункциональную систему мониторинга с использованием Prometheus, Grafana и Alertmanager.
+
+### Структура файлов мониторинга
+
+В каталоге `monitoring/` расположены следующие файлы:
+
+| Файл | Назначение |
+|------|------------|
+| **prometheus.yml** | Конфигурация Prometheus - определяет откуда собирать метрики и интервалы сбора |
+| **alerts.yml** | Правила алертов - определяет условия для алертов (упавший брокер, офлайн партиции и т.д.) |
+| **alertmanager.yml** | Конфигурация Alertmanager - настройка маршрутизации и отправки уведомлений |
+| **grafana-dashboard.json** | Готовый дашборд Grafana с визуализацией метрик Kafka |
+| **grafana-datasources.yml** | Конфигурация datasource для Grafana (подключение к Prometheus) |
+| **jmx_exporter_config.yml** | Конфигурация JMX Exporter - какие метрики экспортировать из Kafka |
+| **Dockerfile.jmx-exporter** | Dockerfile для построения образа JMX Exporter |
+| **entrypoint.sh** | Entrypoint скрипт JMX Exporter - запускает экспорт метрик |
+| **start-monitoring.sh** | Скрипт для запуска всех сервисов мониторинга |
+| **stop-monitoring.sh** | Скрипт для остановки всех сервисов мониторинга |
+| **README.md** | Подробная документация по мониторингу |
+
+### Запуск мониторинга
+
+```bash
+# Запуск всех сервисов включая мониторинг
+docker compose up -d
+
+# Или через специальный скрипт
+./monitoring/start-monitoring.sh
+```
+
+Мониторинг автоматически запускается вместе с Kafka:
+- **JMX Exporters** - подключены к каждому брокеру как sidecar контейнеры
+- **Prometheus** - собирает метрики с всех брокеров обоих кластеров
+- **Alertmanager** - обрабатывает алерты и отправляет уведомления
+- **Grafana** - визуализирует метрики через дашборд
+
+### Доступ к сервисам мониторинга
+
+| Сервис | URL | Логин/Пароль |
+|--------|-----|--------------|
+| **Prometheus** | http://localhost:9090 | - |
+| **Grafana** | http://localhost:3000 | admin/admin |
+| **Alertmanager** | http://localhost:9093 | - |
+
+### Основные метрики
+
+**Prometheus запросы:**
+
+```promql
+# Статус брокеров
+up{job=~"kafka-cluster-.*"}
+
+# Активные брокеры в кластере
+kafka_controller_kafkacontroller_activebrokercount
+
+# Недореплицированные партиции
+kafka_server_replicamanager_underreplicatedpartitions
+
+# Офлайн партиции
+kafka_server_replicamanager_offlinepartitionscount
+
+# Загрузка сети (байты/сек)
+rate(kafka_server_brokertopicmetrics_bytesinpersec_total[5m])
+rate(kafka_server_brokertopicmetrics_bytesoutpersec_total[5m])
+
+# Использование JVM памяти
+(jvm_memory_heap_bytes{area="heap"} / jvm_memory_heap_bytes_max{area="heap"}) * 100
+
+# Speed of requests
+rate(kafka_server_brokertopicmetrics_totalproducerequestspersec_total[5m])
+```
+
+### Настроенные алерты
+
+Созданы следующие алерты:
+
+| Название | Уровень | Условие | Описание |
+|----------|---------|---------|----------|
+| **KafkaBrokerDown** | critical | broker недоступен > 1 мин | Брокер упал и не отвечает |
+| **KafkaBrokerOfflinePartitionsCount** | critical | офлайн партиции > 0 | Партиции в офлайн состоянии |
+| **KafkaBrokerActiveControllerCount** | critical | нет активного контроллера > 2 мин | Потеря контроллера кластера |
+| **KafkaBrokerUnderReplicatedPartitions** | warning | недореплицированные партиции > 0 | Проблемы с репликацией |
+| **KafkaBrokerRequestHandlerIdle** | warning | idle < 10% > 10 мин | Нагрузка на обработчики запросов |
+| **KafkajvmMemoryHigh** | warning | память > 90% > 5 мин | Высокое использование памяти JVM |
+| **KafkaBrokerProducerRequestRateLow** | info | низкая скорость запросов | Низкая активность продюсеров |
+
+### Настройка email-оповещений
+
+Для получения email оповещений редактируйте `monitoring/alertmanager.yml`:
+
+```yaml
+global:
+  smtp_smarthost: "your-smtp-server:587"
+  smtp_from: "alertmanager@yourdomain.com"
+  smtp_auth_username: "your-smtp-username"
+  smtp_auth_password: "your-smtp-password"
+  smtp_require_tls: true
+```
+
+Замените email адреса в секции `receivers` на свои.
+
+### Проверка мониторинга
+
+```bash
+# Проверить статус JMX Exporter
+curl http://localhost:7071/metrics
+
+# Проверить статус Prometheus targets
+curl 'http://localhost:9090/api/v1/targets' | grep -A 2 "health"
+
+# Проверить метрики в Prometheus
+curl 'http://localhost:9090/api/v1/query?query=kafka_controller_kafkacontroller_activebrokercount'
+
+# Проверить алерты в Prometheus
+http://localhost:9090/alerts
+
+# Проверить логи сервисов
+docker compose logs prometheus
+docker compose logs alertmanager
+docker compose logs grafana
+docker logs kafka-0-jmx
+```
+
+### Дашборды Grafana
+
+1. Откройте Grafana: http://localhost:3000
+2. Логин: admin, пароль: admin
+3. Дашборд "Kafka Monitoring Dashboard" автоматически provisioning при запуске
+
+**Панели дашборда:**
+- Статус брокеров (онлайн/офлайн)
+- Скорость передачи данных (Bytes In/Out)
+- Запросы продюсеров/консьюмеров
+- Недореплицированные партиции
+- Офлайн партиции
+- Использование JVM памяти
+- Загрузка request handler'ов
+- Статус активного контроллера
+- Латентность запросов
+
+### JMX и оба кластера
+
+**Кластер 1:**
+- kafka-0-jmx: localhost:7071
+- kafka-1-jmx: localhost:7072
+- kafka-2-jmx: localhost:7073
+
+**Кластер 2:**
+- kafka-3-jmx: localhost:7074
+- kafka-4-jmx: localhost:7075
+- kafka-5-jmx: localhost:7076
+
+Прямой доступ к метрикам:
+```bash
+curl http://localhost:7071/metrics  # kafka-0
+curl http://localhost:7072/metrics  # kafka-1
+# и т.д.
+```
+
+### Полная документация
+
+Подробная документация по мониторингу: [monitoring/README.md](monitoring/README.md)
+
 ## Остановка сервисов
 
 ```bash
