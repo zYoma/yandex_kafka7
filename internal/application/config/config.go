@@ -11,7 +11,10 @@ import (
 type Config struct {
 	BootstrapServers         string `env:"BOOTSTRAP_SERVER" envDefault:"kafka-0:9092,kafka-1:9092,kafka-2:9092"`
 	Topic                    string `env:"TOPIC" envDefault:"test_topic"`
+	RequestsTopic            string `env:"REQUESTS_TOPIC" envDefault:"requests"`
+	RecommendationsTopic     string `env:"RECOMMENDATIONS_TOPIC" envDefault:"recommendations"`
 	ProductsSourceFile       string `env:"PRODUCTS_SOURCE_FILE" envDefault:"products_source.json"`
+	ProductsFile             string `env:"PRODUCTS_FILE" envDefault:"kafka-connect/output/filtered-products.txt"`
 	Acks                     string `env:"ACKS" envDefault:"all"`
 	CompressionType          string `env:"COMPRASSION_TYPE" envDefault:"zstd"`
 	GroupId                  string `env:"GROUP_ID" envDefault:"test-group"`
@@ -65,6 +68,7 @@ func (c *Config) GetProducerConfig() *kafka.ConfigMap {
 		cfgMap.SetKey("sasl.username", c.SASLUsername)
 		cfgMap.SetKey("sasl.password", c.SASLPassword)
 		cfgMap.SetKey("ssl.ca.location", c.SSLCALocation)
+		cfgMap.SetKey("ssl.endpoint.identification.algorithm", "https")
 	}
 
 	return cfgMap
@@ -93,6 +97,7 @@ func (c *Config) GetConsumerConfig() *kafka.ConfigMap {
 		cfgMap.SetKey("sasl.username", c.SASLUsername)
 		cfgMap.SetKey("sasl.password", c.SASLPassword)
 		cfgMap.SetKey("ssl.ca.location", c.SSLCALocation)
+		cfgMap.SetKey("ssl.endpoint.identification.algorithm", "https")
 	}
 
 	return cfgMap

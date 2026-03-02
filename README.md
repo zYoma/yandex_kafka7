@@ -18,6 +18,34 @@ docker compose up -d
 ./scripts/test-replication.sh
 ```
 
+## CLI Приложение
+
+Интерактивный клиент для работы с системой рекомендаций и поиска товаров.
+
+### Запуск через Docker
+
+CLI - это интерактивное приложение, поэтому запускайте его через `run`, а не `up`:
+
+```bash
+# Через скрипт
+./scripts/docker-cli.sh search "Тестовый"
+./scripts/docker-cli.sh recommendations
+./scripts/docker-cli.sh send-recommendations
+
+# Прямой запуск
+docker compose run --rm client /app/yandex-kafka-client search "Тестовый"
+docker compose run --rm analytic_client /app/yandex-kafka-analytic
+```
+
+**Важно:** НЕ используйте `docker compose up client` - CLI приложения запускаются через `run`.
+
+### Функциональность
+
+- **Поиск товаров**: Поиск в файле `kafka-connect/output/filtered-products.txt` с отправкой запроса в Kafka для аналитики
+- **Рекомендации**: Получение персонализированных рекомендаций из Kafka
+
+См. [DOCKER_CLI.md](DOCKER_CLI.md) для подробной документации по Docker.
+
 ## Сервисы
 
 ### Кластеры Kafka
@@ -47,14 +75,17 @@ docker compose up -d
 | admin           | admin-secret  | Суперпользователь     | Все операции, управление                 |
 | user            | user-secret   | Интер-брокер          | Необходим для внутренней репликации Kafka |
 | shop_client     | shop-secret   | Продюсер              | WRITE в `shops_data`                      |
-| analytic_client | analytic-secret| Консьюмер           | READ из `shops_data`                      |
+| analytic_client | analytic-secret| Консьюмер/Продюсер   | READ из `shops_data`, WRITE в `recommendations` |
 | filter_client   | filter-secret  | Консьюмер           | READ из `shops_data`                      |
+| client          | client-secret  | CLI Пользователь      | READ из `recommendations`, WRITE в `requests` |
 
 ## Топики
 
-| Топик      | Кластер   | Партиции | Репликация | Продюсер      | Консьюмеры                         |
-|------------|-----------|-----------|------------|---------------|-------------------------------------|
-| shops_data | Both      | 3         | 3          | shop_client   | analytic_client, filter_client      |
+| Топик           | Кластер   | Партиции | Репликация | Продюсер      | Консьюмеры                         |
+|-----------------|-----------|-----------|------------|---------------|-------------------------------------|
+| shops_data      | Both      | 3         | 3          | shop_client   | analytic_client, filter_client      |
+| recommendations | Both      | 3         | 3          | analytic_client | client                             |
+| requests        | Both      | 3         | 3          | client        | - (для аналитики)                   |
 
 Все топики из Кластер 1 автоматически реплицируются в Кластер 2 с помощью MirrorMaker 2.
 

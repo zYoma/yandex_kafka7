@@ -18,8 +18,8 @@ x-env-common: &env-common
   KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD: password
   KAFKA_CFG_SSL_KEY_PASSWORD: password
   KAFKA_CFG_SSL_CLIENT_AUTH: none
-  KAFKA_CLIENT_USERS: admin,user,shop_client,analytic_client,filter_client
-  KAFKA_CLIENT_PASSWORDS: admin-secret,user-secret,shop-secret,analytic-secret,filter-secret
+  KAFKA_CLIENT_USERS: admin,user,shop_client,analytic_client,filter_client,client
+  KAFKA_CLIENT_PASSWORDS: admin-secret,user-secret,shop-secret,analytic-secret,filter-secret,client-secret
   KAFKA_CONTROLLER_USER: admin
   KAFKA_CONTROLLER_PASSWORD: admin-secret
 
@@ -409,9 +409,42 @@ services:
     networks:
       - kafka-network
     depends_on:
-     - kafka-0
-     - kafka-1
-     - kafka-2
+      - kafka-0
+      - kafka-1
+      - kafka-2
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env.client
+    volumes:
+      - ./kafka-creds:/app/ca
+      - ./kafka-connect/output/filtered-products.txt:/app/filtered-products.txt:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+    stdin_open: true
+    tty: true
+
+  analytic_client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env.analytic_client
+    volumes:
+      - ./kafka-creds:/app/ca:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
 
 volumes:
   kafka_0_data:

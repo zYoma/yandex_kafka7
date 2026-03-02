@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -37,16 +38,37 @@ func (p *KafkaProducer) Stop() {
 	close(p.DeliveryChan)
 }
 
+// SetTopic устанавливает топик для отправки сообщений.
+func (p *KafkaProducer) SetTopic(topic string) {
+	p.Topic = topic
+}
+
 // SendMessages отправляет пачку сообщений.
 func (p *KafkaProducer) SendMessages(ctx context.Context, messages []interface{}) error {
 
 	// Подготовка сообщений для отправки
 	var kafkaMessages []*kafka.Message
 	for _, msg := range messages {
-		// Сериализация сообщения
-		payload, err := p.Serializer.Serialize(p.Topic, msg)
-		if err != nil {
-			return fmt.Errorf("ошибка при сериализации сообщения: %w", err)
+		var payload []byte
+		var err error
+
+		// Попытка сериализовать через Avro Serializer
+		if p.Serializer != nil {
+			payload, err = p.Serializer.Serialize(p.Topic, msg)
+			if err != nil {
+				// Если Avro сериализация не удалась, пробуем JSON
+				if jsonBytes, jsonErr := json.Marshal(msg); jsonErr == nil {
+					payload = jsonBytes
+				} else {
+					return fmt.Errorf("ошибка при сериализации сообщения: %w", err)
+				}
+			}
+		} else {
+			// Если нет сериализатора, используем JSON
+			payload, err = json.Marshal(msg)
+			if err != nil {
+				return fmt.Errorf("ошибка при JSON сериализации сообщения: %w", err)
+			}
 		}
 
 		kafkaMessage := &kafka.Message{

@@ -8,12 +8,16 @@ import (
 type Producer interface {
 	// SendMessages отправляет сообщения в топик
 	SendMessages(ctx context.Context, messages []interface{}) error
+	// SetTopic устанавливает топик для отправки сообщений
+	SetTopic(topic string)
 }
 
 // Consumer предоставляет интерфейс консьюмера.
 type Consumer interface {
 	// консьюмер запускается в режиме поочередной обработки сообщений
 	StartBatchMessage(ctx context.Context) error
+	// ReadOneMessage читает одно сообщение из топика
+	ReadOneMessage(ctx context.Context, topic string) ([]byte, error)
 }
 
 // Product представляет продукт для записи в HDFS

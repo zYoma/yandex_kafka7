@@ -299,3 +299,55 @@ func (c *KafkaConsumer) rebalanceCallback(k *kafka.Consumer, event kafka.Event) 
 
 	return nil
 }
+
+// ReadOneMessage читает одно сообщение из указанного топика.
+func (c *KafkaConsumer) ReadOneMessage(ctx context.Context, topic string) ([]byte, error) {
+	cfgMap := &kafka.ConfigMap{
+		"bootstrap.servers":  c.Config.BootstrapServers,
+		"group.id":           "cli-consumer-" + fmt.Sprintf("%d", time.Now().Unix()),
+		"auto.offset.reset":  "latest",
+		"enable.auto.commit": "true",
+	}
+
+	if c.Config.UseSSL {
+		cfgMap.SetKey("security.protocol", "SASL_SSL")
+		cfgMap.SetKey("sasl.mechanism", "PLAIN")
+		cfgMap.SetKey("sasl.username", c.Config.SASLUsername)
+		cfgMap.SetKey("sasl.password", c.Config.SASLPassword)
+		cfgMap.SetKey("ssl.ca.location", c.Config.SSLCALocation)
+	}
+
+	consumer, err := kafka.NewConsumer(cfgMap)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create consumer: %w", err)
+	}
+	defer consumer.Close()
+
+	err = consumer.SubscribeTopics([]string{topic}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to subscribe to topic: %w", err)
+	}
+
+	timeout := 10 * time.Second
+	start := time.Now()
+
+	for time.Since(start) < timeout {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		msg, err := consumer.ReadMessage(200)
+		if err != nil {
+			if kafkaErr, ok := err.(kafka.Error); ok && kafkaErr.Code() == kafka.ErrTimedOut {
+				continue
+			}
+			return nil, fmt.Errorf("consumer error: %w", err)
+		}
+
+		return msg.Value, nil
+	}
+
+	return nil, fmt.Errorf("no messages found in topic '%s' within timeout", topic)
+}
