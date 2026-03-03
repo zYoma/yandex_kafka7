@@ -17,7 +17,7 @@ type Config struct {
 	ProductsSourceFile       string `env:"PRODUCTS_SOURCE_FILE" envDefault:"products_source.json"`
 	ProductsFile             string `env:"PRODUCTS_FILE" envDefault:"kafka-connect/output/filtered-products.txt"`
 	Acks                     string `env:"ACKS" envDefault:"all"`
-	CompressionType          string `env:"COMPRASSION_TYPE" envDefault:"zstd"`
+	CompressionType          string `env:"COMPRESSION_TYPE" envDefault:"zstd"`
 	GroupId                  string `env:"GROUP_ID" envDefault:"test-group"`
 	AutoOffsetReset          string `env:"AUTO_OFFSET_RESET" envDefault:"earliest"`
 	EnableAutoCommit         bool   `env:"ENABLE_AUTO_COMMIT" envDefault:"false"`
@@ -27,6 +27,7 @@ type Config struct {
 	FetchWaitMaxMS           int    `env:"FETCH_WAIT_MAX_MS" envDefault:"100"`
 	FetchMinByres            int    `env:"FETCH_MIN_BYRES" envDefault:"1"`
 	Retries                  int    `env:"RETRIES" envDefault:"100"`
+	RetriesPerConnection     int    `env:"RETRIES_PER_CONNECTION" envDefault:"5"`
 	MaxPollIntervalMS        int    `env:"MAX_POLL_INTERVAL_MS" envDefault:"300000"`
 	SchemaRegistryServiceURL string `env:"SCHEMA_REGISTRY_SERVICE_URL" envDefault:"http://schema-registry:8081"`
 	SingleMessageConsumer    bool   `env:"ENABLE_SINGLE_MESSAGE_CONSUMER" envDefault:"true"`
@@ -72,13 +73,14 @@ func GetConfig() (*Config, error) {
 // GetProducerConfig возвращает конфигурацию для продюсера Kafka
 func (c *Config) GetProducerConfig() *kafka.ConfigMap {
 	cfgMap := &kafka.ConfigMap{
-		"bootstrap.servers":   c.BootstrapServers,
-		"compression.type":    c.CompressionType,
-		"acks":                c.Acks,
-		"linger.ms":           c.LingerMS,
-		"batch.num.messages":  c.BatchNumMessage,
-		"delivery.timeout.ms": c.DeliveryTimeoutMS,
-		"retries":             c.Retries,
+		"bootstrap.servers":                     c.BootstrapServers,
+		"compression.type":                      c.CompressionType,
+		"acks":                                  c.Acks,
+		"linger.ms":                             c.LingerMS,
+		"batch.num.messages":                    c.BatchNumMessage,
+		"delivery.timeout.ms":                   c.DeliveryTimeoutMS,
+		"retries":                               c.Retries,
+		"max.in.flight.requests.per.connection": c.RetriesPerConnection,
 	}
 
 	if c.UseSSL {

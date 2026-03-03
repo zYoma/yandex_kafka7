@@ -24,10 +24,11 @@ const (
 
 // KafkaConsumer реализует интерфейс Consumer для чтения сообщений из Kafka.
 type KafkaConsumer struct {
-	Consumer     *kafka.Consumer
-	Deserializer *avrov2.Deserializer
-	Config       *config.Config
-	HDFSClient   interfaces.HDFSClient
+	Consumer         *kafka.Consumer
+	Deserializer     *avrov2.Deserializer
+	Config           *config.Config
+	HDFSClient       interfaces.HDFSClient
+	MessageProcessor interfaces.MessageProcessor
 }
 
 // partitionGroup группирует сообщения по партициям для параллельной обработки.
@@ -56,6 +57,11 @@ func (c *KafkaConsumer) SetHDFSClient(client interfaces.HDFSClient) {
 	c.HDFSClient = client
 }
 
+// SetMessageProcessor устанавливает обработчик сообщений для консьюмера.
+func (c *KafkaConsumer) SetMessageProcessor(processor interfaces.MessageProcessor) {
+	c.MessageProcessor = processor
+}
+
 // deserializeMessage десериализует сообщение из Kafka в указанную структуру.
 func (c *KafkaConsumer) deserializeMessage(msg *kafka.Message, data interface{}) error {
 	err := c.Deserializer.DeserializeInto(c.Config.Topic, msg.Value, data)
@@ -80,10 +86,11 @@ func (c *KafkaConsumer) Subscribe() error {
 func (c *KafkaConsumer) StartBatchMessage(ctx context.Context) error {
 	defer c.Consumer.Close()
 
-	// Подписываемся на топики
-	err := c.Subscribe()
-	if err != nil {
-		return err
+	if c.MessageProcessor == nil {
+		err := c.Subscribe()
+		if err != nil {
+			return err
+		}
 	}
 
 	for {
@@ -193,11 +200,16 @@ func (c *KafkaConsumer) StartBatchMessage(ctx context.Context) error {
 
 // processPartition обрабатывает пачку сообщений для одной партиции.
 func (c *KafkaConsumer) processPartition(ctx context.Context, tp kafka.TopicPartition, msgs []*kafka.Message) error {
-	// Получаем offset'ы для пачки
 	firstOffset := msgs[0].TopicPartition.Offset
 	lastOffset := msgs[len(msgs)-1].TopicPartition.Offset
 
-	// Десериализация всех сообщений из пачки
+	if c.MessageProcessor != nil {
+		for _, msg := range msgs {
+			go c.MessageProcessor.ProcessMessage(ctx, msg.Value)
+		}
+		return c.commitPartition(tp, lastOffset)
+	}
+
 	var products []domain.Product
 	for _, msg := range msgs {
 		var product domain.Product
@@ -210,31 +222,27 @@ func (c *KafkaConsumer) processPartition(ctx context.Context, tp kafka.TopicPart
 
 	logger.Get().Sugar().Infof("Got %d messages from partition %d, first offset %d", len(products), tp.Partition, firstOffset)
 
-	// Создаем контекст с таймаутом, меньше чем max_poll_interval_ms
 	maxPollInterval := time.Duration(c.Config.MaxPollIntervalMS) * time.Millisecond
-	timeout := maxPollInterval - (maxPollInterval / 10) // Убираем 10% как запасной период
+	timeout := maxPollInterval - (maxPollInterval / 10)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	done := make(chan bool, 1)
 	go func() {
-		// done <- domain.ProcessProducts(ctx, products, c.HDFSClient)
+		done <- domain.ProcessProducts(ctx, products, c.HDFSClient)
 	}()
 
 	select {
 	case success := <-done:
 		if success {
-			// Если обработка успешна, коммитит сообщения.
 			logger.Get().Sugar().Infof("success")
 			return c.commitPartition(tp, lastOffset)
 		} else {
 			logger.Get().Sugar().Infof("fail")
-			// Иначе - возвращаем весь батч на повторную обработку
 			return c.rollbackPartition(tp, firstOffset)
 		}
 	case <-ctx.Done():
-		// Таймаут превышен, возвращаем батч на повторную обработку
 		logger.Get().Sugar().Warnf("Processing timeout for partition %d, rolling back", tp.Partition)
 		return c.rollbackPartition(tp, firstOffset)
 	}
@@ -305,28 +313,9 @@ func (c *KafkaConsumer) rebalanceCallback(k *kafka.Consumer, event kafka.Event) 
 
 // ReadOneMessage читает одно сообщение из указанного топика.
 func (c *KafkaConsumer) ReadOneMessage(ctx context.Context, topic string) ([]byte, error) {
-	cfgMap := &kafka.ConfigMap{
-		"bootstrap.servers":  c.Config.BootstrapServers,
-		"group.id":           "cli-consumer-" + fmt.Sprintf("%d", time.Now().Unix()),
-		"auto.offset.reset":  "latest",
-		"enable.auto.commit": "true",
-	}
+	defer c.Consumer.Close()
 
-	if c.Config.UseSSL {
-		cfgMap.SetKey("security.protocol", "SASL_SSL")
-		cfgMap.SetKey("sasl.mechanism", "PLAIN")
-		cfgMap.SetKey("sasl.username", c.Config.SASLUsername)
-		cfgMap.SetKey("sasl.password", c.Config.SASLPassword)
-		cfgMap.SetKey("ssl.ca.location", c.Config.SSLCALocation)
-	}
-
-	consumer, err := kafka.NewConsumer(cfgMap)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create consumer: %w", err)
-	}
-	defer consumer.Close()
-
-	err = consumer.SubscribeTopics([]string{topic}, nil)
+	err := c.Consumer.SubscribeTopics([]string{topic}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to subscribe to topic: %w", err)
 	}
@@ -341,7 +330,7 @@ func (c *KafkaConsumer) ReadOneMessage(ctx context.Context, topic string) ([]byt
 		default:
 		}
 
-		msg, err := consumer.ReadMessage(200)
+		msg, err := c.Consumer.ReadMessage(200)
 		if err != nil {
 			if kafkaErr, ok := err.(kafka.Error); ok && kafkaErr.Code() == kafka.ErrTimedOut {
 				continue

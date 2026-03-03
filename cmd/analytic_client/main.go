@@ -1,10 +1,11 @@
-// Package main содержит точку входа для аналитического консьюмера.
 package main
 
 import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/zYoma/yandex_kafka7/internal/application/config"
 	"github.com/zYoma/yandex_kafka7/internal/domain"
@@ -13,15 +14,12 @@ import (
 	"github.com/zYoma/yandex_kafka7/internal/logger"
 )
 
-// main запускает аналитический консьюмер, обрабатывает поисковые запросы, сохраняет в HDFS и отправляет рекомендации.
 func main() {
 	cfg, err := config.GetConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 		panic(err)
 	}
-
-	ctx := context.Background()
 
 	serializer, err := kafkacustom.GetSerializer(cfg)
 	if err != nil {
@@ -43,13 +41,36 @@ func main() {
 	}
 	defer hdfsClient.Close()
 
-	analyticsService := domain.NewAnalyticsService(producer, hdfsClient, cfg)
+	recProcessor := domain.NewRecommendationProcessor(producer, cfg.GetRecommendationsTopic())
 
-	if err := analyticsService.Run(ctx); err != nil {
-		if _, ok := err.(domain.ErrAppStopped); ok {
-			logger.Get().Info("analytic consumer stopped")
-			return
-		}
+	consumer, err := kafkacustom.NewKafkaConsumer(nil, cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating consumer: %v\n", err)
+		panic(err)
+	}
+	defer consumer.Consumer.Close()
+
+	consumer.SetHDFSClient(hdfsClient)
+	consumer.SetMessageProcessor(recProcessor)
+
+	err = consumer.Consumer.SubscribeTopics([]string{cfg.GetRequestsTopic()}, nil)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to subscribe to topic: %v\n", err)
+		panic(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigChan
+		logger.Get().Sugar().Infof("Received signal: %v", sig)
+		cancel()
+	}()
+
+	if err := consumer.StartBatchMessage(ctx); err != nil {
 		panic(err)
 	}
 }

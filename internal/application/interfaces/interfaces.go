@@ -19,3 +19,7 @@ type HDFSClient interface {
 	WriteRequestData(ctx context.Context, data []byte, filename string) error
 	Close() error
 }
+
+type MessageProcessor interface {
+	ProcessMessage(ctx context.Context, data []byte) error
+}

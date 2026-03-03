@@ -11,132 +11,9 @@ import (
 	"strings"
 	"time"
 
-	kafkago "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/zYoma/yandex_kafka7/internal/application/interfaces"
 	"github.com/zYoma/yandex_kafka7/internal/logger"
 )
-
-type ErrAppStopped struct{}
-
-// Error возвращает строковое представление ошибки остановки приложения.
-func (e ErrAppStopped) Error() string {
-	return "application stopped"
-}
-
-// ConsumerConfig определяет интерфейс для получения конфигурации консьюмера.
-type ConsumerConfig interface {
-	GetConsumerConfig() *kafkago.ConfigMap
-	GetProducerConfig() *kafkago.ConfigMap
-	GetBootstrapServers() string
-	GetRequestsTopic() string
-	GetRecommendationsTopic() string
-}
-
-// AnalyticsService обрабатывает поисковые запросы, сохраняет их в HDFS и отправляет рекомендации.
-type AnalyticsService struct {
-	producer interfaces.Producer
-	hdfs     interfaces.HDFSClient
-	cfg      ConsumerConfig
-}
-
-// NewAnalyticsService создает новый сервис аналитики с указанными зависимостями.
-func NewAnalyticsService(producer interfaces.Producer, hdfs interfaces.HDFSClient, cfg ConsumerConfig) *AnalyticsService {
-	return &AnalyticsService{
-		producer: producer,
-		hdfs:     hdfs,
-		cfg:      cfg,
-	}
-}
-
-// Run запускает сервис аналитики для обработки поисковых запросов из Kafka.
-func (s *AnalyticsService) Run(ctx context.Context) error {
-	cfgMap := s.cfg.GetConsumerConfig()
-	kafkaConsumer, err := kafkago.NewConsumer(cfgMap)
-	if err != nil {
-		return fmt.Errorf("failed to create consumer: %w", err)
-	}
-	defer kafkaConsumer.Close()
-
-	err = kafkaConsumer.SubscribeTopics([]string{s.cfg.GetRequestsTopic()}, nil)
-	if err != nil {
-		return fmt.Errorf("failed to subscribe to topic: %w", err)
-	}
-
-	logger.Get().Sugar().Infof("Analytics consumer started, listening to requests topic...")
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ErrAppStopped{}
-		default:
-			msg, err := kafkaConsumer.ReadMessage(100)
-			if err != nil {
-				if kafkaErr, ok := err.(kafkago.Error); ok && kafkaErr.Code() == kafkago.ErrTimedOut {
-					continue
-				}
-				logger.Get().Sugar().Errorf("Consumer error: %v", err)
-				continue
-			}
-
-			value := msg.Value
-			timestamp := time.Now().Format("20060102_150405")
-			msgID := fmt.Sprintf("%s_%d", timestamp, msg.TopicPartition.Offset)
-
-			logger.Get().Sugar().Infof("Received message from requests topic: %s", msgID)
-
-			if err := s.hdfs.WriteRequestData(ctx, value, msgID); err != nil {
-				logger.Get().Sugar().Errorf("Failed to write to HDFS: %v", err)
-			} else {
-				logger.Get().Sugar().Infof("Successfully saved to HDFS: %s", msgID)
-			}
-
-			_, err = kafkaConsumer.CommitMessage(msg)
-			if err != nil {
-				logger.Get().Sugar().Warnf("Failed to commit message: %v", err)
-			}
-
-			go s.sendRecommendation(ctx, value)
-		}
-	}
-}
-
-// sendRecommendation генерирует и отправляет персонализированную рекомендацию в Kafka.
-func (s *AnalyticsService) sendRecommendation(ctx context.Context, requestData []byte) {
-	data := requestData
-
-	var strData string
-	decodedData := data
-
-	if err := json.Unmarshal(data, &strData); err == nil {
-		logger.Get().Sugar().Infof("Request is string-encoded: %s", strData)
-		decodedBytes, err := base64.StdEncoding.DecodeString(strings.Trim(strData, "\""))
-		if err == nil {
-			decodedData = decodedBytes
-			logger.Get().Sugar().Infof("Decoded base64 data: %s", string(decodedBytes))
-		}
-	}
-
-	var request Request
-	if err := json.Unmarshal(decodedData, &request); err != nil {
-		logger.Get().Sugar().Errorf("Failed to unmarshal request: %v, data: %s", err, string(decodedData))
-		return
-	}
-
-	recommendation := Recommendation{
-		ProductID:    "rec_" + fmt.Sprintf("%d", time.Now().UnixNano()),
-		ProductName:  request.ProductName + " - Recommended",
-		Reason:       "Based on your search history",
-		Confidence:   0.85,
-		Alternatives: []string{"alt_1", "alt_2", "alt_3"},
-		Timestamp:    time.Now().Format(time.RFC3339),
-	}
-
-	if err := SendRecommendation(ctx, s.producer, s.cfg.GetRecommendationsTopic(), recommendation); err != nil {
-		logger.Get().Sugar().Errorf("Failed to send recommendation: %v", err)
-	} else {
-		logger.Get().Sugar().Infof("Successfully sent recommendation for product: %s", request.ProductName)
-	}
-}
 
 type Price struct {
 	Amount   float64 `json:"amount"`
@@ -153,6 +30,57 @@ type Stock struct {
 type Image struct {
 	Url *string `json:"url"`
 	Alt *string `json:"alt"`
+}
+
+// RecommendationProcessor обрабатывает запросы и генерирует рекомендации.
+type RecommendationProcessor struct {
+	producer interfaces.Producer
+	recTopic string
+}
+
+func NewRecommendationProcessor(producer interfaces.Producer, recommendationsTopic string) *RecommendationProcessor {
+	return &RecommendationProcessor{
+		producer: producer,
+		recTopic: recommendationsTopic,
+	}
+}
+
+func (p *RecommendationProcessor) ProcessMessage(ctx context.Context, data []byte) error {
+	var strData string
+	decodedData := data
+
+	if err := json.Unmarshal(data, &strData); err == nil {
+		logger.Get().Sugar().Infof("Request is string-encoded: %s", strData)
+		decodedBytes, err := base64.StdEncoding.DecodeString(strings.Trim(strData, "\""))
+		if err == nil {
+			decodedData = decodedBytes
+			logger.Get().Sugar().Infof("Decoded base64 data: %s", string(decodedData))
+		}
+	}
+
+	var request Request
+	if err := json.Unmarshal(decodedData, &request); err != nil {
+		logger.Get().Sugar().Errorf("Failed to unmarshal request: %v, data: %s", err, string(decodedData))
+		return err
+	}
+
+	recommendation := Recommendation{
+		ProductID:    "rec_" + fmt.Sprintf("%d", time.Now().UnixNano()),
+		ProductName:  request.ProductName + " - Recommended",
+		Reason:       "Based on your search history",
+		Confidence:   0.85,
+		Alternatives: []string{"alt_1", "alt_2", "alt_3"},
+		Timestamp:    time.Now().Format(time.RFC3339),
+	}
+
+	if err := SendRecommendation(ctx, p.producer, p.recTopic, recommendation); err != nil {
+		logger.Get().Sugar().Errorf("Failed to send recommendation: %v", err)
+		return err
+	} else {
+		logger.Get().Sugar().Infof("Successfully sent recommendation for product: %s", request.ProductName)
+	}
+
+	return nil
 }
 
 // Product представляет товар в системе электронной коммерции.
@@ -188,6 +116,25 @@ type Recommendation struct {
 	Confidence   float64  `json:"confidence"`
 	Alternatives []string `json:"alternatives"`
 	Timestamp    string   `json:"timestamp"`
+}
+
+// ProcessProducts обрабатывает список продуктов и сохраняет их в HDFS.
+func ProcessProducts(ctx context.Context, products []Product, hdfsClient interfaces.HDFSClient) bool {
+	for _, product := range products {
+		data, err := json.Marshal(product)
+		if err != nil {
+			logger.Get().Sugar().Errorf("Failed to marshal product: %v", err)
+			return false
+		}
+
+		msgID := product.ProductID
+		if err := hdfsClient.WriteRequestData(ctx, data, msgID); err != nil {
+			logger.Get().Sugar().Errorf("Failed to write to HDFS: %v", err)
+			return false
+		}
+	}
+
+	return true
 }
 
 // SendProductsFromFile читает товары из JSON файла и отправляет их в Kafka.
