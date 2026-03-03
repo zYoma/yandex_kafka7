@@ -15,7 +15,7 @@ func main() {
 	cfg, err := config.GetConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -24,32 +24,32 @@ func main() {
 	serializer, err := kafka.GetSerializer(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating serializer: %v\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	producer, err := kafka.NewKafkaProducer(serializer, cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating producer: %v\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 	defer producer.Stop()
 
 	deserializer, err := kafka.GetDeserializer(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating deserializer: %v\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	consumer, err := kafka.NewKafkaConsumer(deserializer, cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating consumer: %v\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	cliClient, err := cli.NewCLI(producer, consumer, cfg.ProductsFile, cfg.RequestsTopic, cfg.RecommendationsTopic)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error initializing CLI: %v\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 
 	if len(os.Args) < 2 {
@@ -63,7 +63,7 @@ func main() {
 	err = cliClient.Run(ctx, command, args)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+		panic(err)
 	}
 }
 

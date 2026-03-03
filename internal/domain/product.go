@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,8 +10,126 @@ import (
 	"strings"
 	"time"
 
+	kafkago "github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/zYoma/yandex_kafka7/internal/application/interfaces"
+	"github.com/zYoma/yandex_kafka7/internal/logger"
 )
+
+type ErrAppStopped struct{}
+
+func (e ErrAppStopped) Error() string {
+	return "application stopped"
+}
+
+type ConsumerConfig interface {
+	GetConsumerConfig() *kafkago.ConfigMap
+	GetProducerConfig() *kafkago.ConfigMap
+	GetBootstrapServers() string
+	GetRequestsTopic() string
+	GetRecommendationsTopic() string
+}
+
+type AnalyticsService struct {
+	producer interfaces.Producer
+	hdfs     interfaces.HDFSClient
+	cfg      ConsumerConfig
+}
+
+func NewAnalyticsService(producer interfaces.Producer, hdfs interfaces.HDFSClient, cfg ConsumerConfig) *AnalyticsService {
+	return &AnalyticsService{
+		producer: producer,
+		hdfs:     hdfs,
+		cfg:      cfg,
+	}
+}
+
+func (s *AnalyticsService) Run(ctx context.Context) error {
+	cfgMap := s.cfg.GetConsumerConfig()
+	kafkaConsumer, err := kafkago.NewConsumer(cfgMap)
+	if err != nil {
+		return fmt.Errorf("failed to create consumer: %w", err)
+	}
+	defer kafkaConsumer.Close()
+
+	err = kafkaConsumer.SubscribeTopics([]string{s.cfg.GetRequestsTopic()}, nil)
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to topic: %w", err)
+	}
+
+	logger.Get().Sugar().Infof("Analytics consumer started, listening to requests topic...")
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ErrAppStopped{}
+		default:
+			msg, err := kafkaConsumer.ReadMessage(100)
+			if err != nil {
+				if kafkaErr, ok := err.(kafkago.Error); ok && kafkaErr.Code() == kafkago.ErrTimedOut {
+					continue
+				}
+				logger.Get().Sugar().Errorf("Consumer error: %v", err)
+				continue
+			}
+
+			value := msg.Value
+			timestamp := time.Now().Format("20060102_150405")
+			msgID := fmt.Sprintf("%s_%d", timestamp, msg.TopicPartition.Offset)
+
+			logger.Get().Sugar().Infof("Received message from requests topic: %s", msgID)
+
+			if err := s.hdfs.WriteRequestData(ctx, value, msgID); err != nil {
+				logger.Get().Sugar().Errorf("Failed to write to HDFS: %v", err)
+			} else {
+				logger.Get().Sugar().Infof("Successfully saved to HDFS: %s", msgID)
+			}
+
+			_, err = kafkaConsumer.CommitMessage(msg)
+			if err != nil {
+				logger.Get().Sugar().Warnf("Failed to commit message: %v", err)
+			}
+
+			go s.sendRecommendation(ctx, value)
+		}
+	}
+}
+
+func (s *AnalyticsService) sendRecommendation(ctx context.Context, requestData []byte) {
+	data := requestData
+
+	var strData string
+	decodedData := data
+
+	if err := json.Unmarshal(data, &strData); err == nil {
+		logger.Get().Sugar().Infof("Request is string-encoded: %s", strData)
+		decodedBytes, err := base64.StdEncoding.DecodeString(strings.Trim(strData, "\""))
+		if err == nil {
+			decodedData = decodedBytes
+			logger.Get().Sugar().Infof("Decoded base64 data: %s", string(decodedBytes))
+		}
+	}
+
+	var request Request
+	if err := json.Unmarshal(decodedData, &request); err != nil {
+		logger.Get().Sugar().Errorf("Failed to unmarshal request: %v, data: %s", err, string(decodedData))
+		return
+	}
+
+	recommendation := Recommendation{
+		ProductID:    "rec_" + fmt.Sprintf("%d", time.Now().UnixNano()),
+		ProductName:  request.ProductName + " - Recommended",
+		Reason:       "Based on your search history",
+		Confidence:   0.85,
+		Alternatives: []string{"alt_1", "alt_2", "alt_3"},
+		Timestamp:    time.Now().Format(time.RFC3339),
+	}
+
+	if err := SendRecommendation(ctx, s.producer, s.cfg.GetRecommendationsTopic(), recommendation); err != nil {
+		logger.Get().Sugar().Errorf("Failed to send recommendation: %v", err)
+	} else {
+		logger.Get().Sugar().Infof("Successfully sent recommendation for product: %s", request.ProductName)
+	}
+}
 
 type Price struct {
 	Amount   float64 `json:"amount"`

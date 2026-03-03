@@ -435,16 +435,52 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    command: ["/bin/sh", "-c", "sleep 15 && /app/yandex-kafka-analytic"]
     env_file:
       - ./.env.analytic_client
     volumes:
-      - ./kafka-creds:/app/ca:ro
+      - ./kafka-creds/kafka-3-creds:/app/ca:ro
     networks:
       - kafka-network
     depends_on:
-      - kafka-0
-      - kafka-1
-      - kafka-2
+      - kafka-3
+      - kafka-4
+      - kafka-5
+      - namenode
+      - datanode
+
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    environment:
+      - CLUSTER_NAME=test
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+    env_file:
+      - ./hadoop.env
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    networks:
+      - kafka-network
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    environment:
+      - CLUSTER_NAME=test
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+    env_file:
+      - ./hadoop.env
+    ports:
+      - "9864:9864"
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    networks:
+      - kafka-network
+    depends_on:
+      - namenode
 
 volumes:
   kafka_0_data:
@@ -459,6 +495,8 @@ volumes:
   prometheus-data:
   grafana-data:
   alertmanager-data:
+  hadoop_namenode:
+  hadoop_datanode:
 
 networks:
   kafka-network:

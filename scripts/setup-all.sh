@@ -253,6 +253,16 @@ run_kafka_cmd_cluster1 /opt/bitnami/kafka/bin/kafka-acls.sh \
   --operation Create \
   --topic ${REQUESTS_TOPIC}
 
+echo "Adding READ ACL for analytic_client"
+run_kafka_cmd_cluster1 /opt/bitnami/kafka/bin/kafka-acls.sh \
+  --bootstrap-server kafka-0:9091 \
+  --command-config /client.properties \
+  --add \
+  --allow-principal User:analytic_client \
+  --operation Read \
+  --operation Describe \
+  --topic ${REQUESTS_TOPIC}
+
 echo ""
 echo "=== Step 8: Listing all ACLs ==="
 
@@ -369,6 +379,39 @@ run_kafka_cmd_cluster2 /opt/bitnami/kafka/bin/kafka-acls.sh \
   --operation AlterConfigs \
   --topic _schemas \
   --resource-pattern-type Literal
+
+echo ""
+echo "=== Step 11.5: Setting up ACLs for analytic_client (cluster 2) ==="
+
+echo "Adding READ ACL for analytic_client on requests topic"
+run_kafka_cmd_cluster2 /opt/bitnami/kafka/bin/kafka-acls.sh \
+  --bootstrap-server kafka-3:9094 \
+  --command-config /client.properties \
+  --add \
+  --allow-principal User:analytic_client \
+  --operation Read \
+  --operation Describe \
+  --topic requests
+
+echo "Adding WRITE and CREATE ACL for analytic_client on recommendations topic"
+run_kafka_cmd_cluster2 /opt/bitnami/kafka/bin/kafka-acls.sh \
+  --bootstrap-server kafka-3:9094 \
+  --command-config /client.properties \
+  --add \
+  --allow-principal User:analytic_client \
+  --operation Write \
+  --operation Describe \
+  --operation Create \
+  --topic recommendations
+
+echo "Adding consumer group ACL for analytic_client"
+run_kafka_cmd_cluster2 /opt/bitnami/kafka/bin/kafka-acls.sh \
+  --bootstrap-server kafka-3:9094 \
+  --command-config /client.properties \
+  --add \
+  --allow-principal User:analytic_client \
+  --operation Read \
+  --group '*'
 
 echo ""
 echo "=== Step 12: Listing Cluster 2 ACLs ==="

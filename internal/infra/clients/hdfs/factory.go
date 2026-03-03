@@ -10,6 +10,7 @@ import (
 func NewHDFSClient(cfg *config.Config) (interfaces.HDFSClient, error) {
 	hdfsCfg := &HDFSWriterConfig{
 		Addresses: cfg.HDFSHDFSAddresses,
+		Port:      cfg.HDFSWebHDFSPort,
 		BasePath:  cfg.HDFSKafkaDataPath,
 		BatchSize: 1000,
 	}
@@ -23,7 +24,7 @@ func NewHDFSClient(cfg *config.Config) (interfaces.HDFSClient, error) {
 
 type MockHDFSWriter struct{}
 
-func (m *MockHDFSWriter) WriteProductBatch(_ context.Context, _ []interfaces.Product, _ string) error {
+func (m *MockHDFSWriter) WriteRequestData(_ context.Context, _ []byte, _ string) error {
 	return nil
 }
 

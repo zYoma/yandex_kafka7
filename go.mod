@@ -6,7 +6,6 @@ require (
 	github.com/caarlos0/env/v11 v11.3.1
 	github.com/colinmarc/hdfs/v2 v2.4.0
 	github.com/confluentinc/confluent-kafka-go/v2 v2.12.0
-	github.com/joho/godotenv v1.5.1
 	go.uber.org/zap v1.27.1
 )
 

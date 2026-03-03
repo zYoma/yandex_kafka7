@@ -3,7 +3,6 @@ package hdfs
 import (
 	"bytes"
 	"context"
-	"encoding/csv"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zYoma/yandex_kafka7/internal/application/interfaces"
 	"github.com/zYoma/yandex_kafka7/internal/logger"
 )
 
@@ -24,9 +22,17 @@ type WebHDFSWriter struct {
 }
 
 func NewWebHDFSWriter(cfg *HDFSWriterConfig) (*WebHDFSWriter, error) {
-	baseURL := strings.Split(cfg.Addresses, ",")[0]
-	if !strings.HasPrefix(baseURL, "http") {
-		baseURL = "http://" + baseURL + ":14000"
+	addresses := strings.Split(cfg.Addresses, ",")[0]
+	port := cfg.Port
+	if port == "" {
+		port = "14000"
+	}
+
+	var baseURL string
+	if strings.HasPrefix(addresses, "http") {
+		baseURL = addresses
+	} else {
+		baseURL = "http://" + addresses + ":" + port
 	}
 
 	batchSize := cfg.BatchSize
@@ -98,17 +104,27 @@ func (w *WebHDFSWriter) write(hdfsPath string, content string) (*http.Response, 
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusTemporaryRedirect && resp.StatusCode != http.StatusSeeOther {
+	if resp.StatusCode == http.StatusTemporaryRedirect || resp.StatusCode == http.StatusSeeOther {
+		location := resp.Header.Get("Location")
+		if location == "" {
+			return nil, fmt.Errorf("нет Location header в redirect")
+		}
+
+		req2, err := http.NewRequest("PUT", location, bytes.NewBufferString(content))
+		if err != nil {
+			return nil, fmt.Errorf("ошибка при создании запроса записи: %w", err)
+		}
+		req2.Header.Set("Content-Type", "application/octet-stream")
+
+		return http.DefaultClient.Do(req2)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("ожидался redirect, получен статус %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("ожидался redirect или 201, получен статус %d: %s", resp.StatusCode, string(body))
 	}
 
-	location := resp.Header.Get("Location")
-	if location == "" {
-		return nil, fmt.Errorf("нет Location header в redirect")
-	}
-
-	req2, err := http.NewRequest("PUT", location, bytes.NewBufferString(content))
+	req2, err := http.NewRequest("PUT", redirectURL+"&data=true", bytes.NewBufferString(content))
 	if err != nil {
 		return nil, fmt.Errorf("ошибка при создании запроса записи: %w", err)
 	}
@@ -117,43 +133,18 @@ func (w *WebHDFSWriter) write(hdfsPath string, content string) (*http.Response, 
 	return http.DefaultClient.Do(req2)
 }
 
-func (w *WebHDFSWriter) WriteProductBatch(ctx context.Context, products []interfaces.Product, batchName string) error {
-	if len(products) == 0 {
-		logger.Get().Sugar().Warn("Пустой список продуктов для записи в HDFS")
-		return nil
-	}
+func (w *WebHDFSWriter) WriteRequestData(ctx context.Context, data []byte, filename string) error {
+	logger.Get().Sugar().Infof("WebHDFS: Запись данных запроса: %s", filename)
 
-	batchDir := path.Join(w.basePath, batchName)
-	logger.Get().Sugar().Infof("WebHDFS: Создание директории %s", batchDir)
-	if err := w.mkdir(batchDir); err != nil {
-		return fmt.Errorf("не удалось создать директорию %s: %w", batchDir, err)
+	requestsDir := path.Join(w.basePath, "requests")
+	if err := w.mkdir(requestsDir); err != nil {
+		return fmt.Errorf("не удалось создать директорию requests: %w", err)
 	}
 
 	timestamp := time.Now().Format("20060102_150405_000")
-	fullFilename := path.Join(batchDir, fmt.Sprintf("kafka_data_%s.csv", timestamp))
-	logger.Get().Sugar().Infof("WebHDFS: Создание файла %s", fullFilename)
+	fullFilename := path.Join(requestsDir, fmt.Sprintf("%s_%s.json", filename, timestamp))
 
-	var csvBuilder strings.Builder
-	writer := csv.NewWriter(&csvBuilder)
-
-	for _, product := range products {
-		record := []string{
-			fmt.Sprintf("%d", product.Id),
-			product.Name,
-		}
-		if err := writer.Write(record); err != nil {
-			return fmt.Errorf("ошибка при записи строки в CSV: %w", err)
-		}
-	}
-	writer.Flush()
-	if err := writer.Error(); err != nil {
-		return fmt.Errorf("ошибка при формировании CSV: %w", err)
-	}
-
-	csvData := csvBuilder.String()
-	logger.Get().Sugar().Infof("WebHDFS: Запись %d байт в файл", len(csvData))
-
-	resp, err := w.write(fullFilename, csvData)
+	resp, err := w.write(fullFilename, string(data))
 	if err != nil {
 		return fmt.Errorf("ошибка при записи в файл %s: %w", fullFilename, err)
 	}
@@ -164,7 +155,7 @@ func (w *WebHDFSWriter) WriteProductBatch(ctx context.Context, products []interf
 		return fmt.Errorf("ошибка при записи данных: статус %d, ответ: %s", resp.StatusCode, string(body))
 	}
 
-	logger.Get().Sugar().Infof("Успешно записано %d продуктов через WebHDFS: %s", len(products), fullFilename)
+	logger.Get().Sugar().Infof("Успешно записано %d байт через WebHDFS: %s", len(data), fullFilename)
 	return nil
 }
 

@@ -30,15 +30,31 @@ type Config struct {
 	SchemaRegistryServiceURL string `env:"SCHEMA_REGISTRY_SERVICE_URL" envDefault:"http://schema-registry:8081"`
 	SingleMessageConsumer    bool   `env:"ENABLE_SINGLE_MESSAGE_CONSUMER" envDefault:"true"`
 
-	UseSSL        bool   `env:"USE_SSL" envDefault:"true"`
-	SASLUsername  string `env:"SASL_USERNAME" envDefault:"admin"`
-	SASLPassword  string `env:"SASL_PASSWORD" envDefault:""`
-	SSLCALocation string `env:"SSL_CA_LOCATION" envDefault:"/certs/ca.crt"`
+	UseSSL            bool   `env:"USE_SSL" envDefault:"true"`
+	SASLUsername      string `env:"SASL_USERNAME" envDefault:"admin"`
+	SASLPassword      string `env:"SASL_PASSWORD" envDefault:""`
+	SSLCALocation     string `env:"SSL_CA_LOCATION" envDefault:"/certs/ca.crt"`
+	SSLTruststoreLoc  string `env:"SSL_TRUSTSTORE_LOCATION" envDefault:""`
+	SSLTruststorePwd  string `env:"SSL_TRUSTSTORE_PASSWORD" envDefault:""`
+	SSLTruststoreType string `env:"SSL_TRUSTSTORE_TYPE" envDefault:""`
 
 	HadoopHDFSMode     bool   `env:"HADOOP_HDFS_MODE" envDefault:"false"`
-	HDFSHDFSAddresses  string `env:"HDFS_ADDRESSES" envDefault:"namenode:9000"`
+	HDFSHDFSAddresses  string `env:"HDFS_ADDRESSES" envDefault:"namenode"`
+	HDFSWebHDFSPort    string `env:"HDFS_WEBHDFS_PORT" envDefault:"14000"`
 	HDFSKafkaDataPath  string `env:"HDFS_KAFKA_DATA_PATH" envDefault:"/kafka_data"`
 	DataprocMasterHost string `env:"DATAPROC_MASTER_HOST" envDefault:""`
+}
+
+func (c *Config) GetBootstrapServers() string {
+	return c.BootstrapServers
+}
+
+func (c *Config) GetRequestsTopic() string {
+	return c.RequestsTopic
+}
+
+func (c *Config) GetRecommendationsTopic() string {
+	return c.RecommendationsTopic
 }
 
 // GetConfig возвращает конфигурацию приложения из переменных окружения.
@@ -67,7 +83,14 @@ func (c *Config) GetProducerConfig() *kafka.ConfigMap {
 		cfgMap.SetKey("sasl.mechanism", "PLAIN")
 		cfgMap.SetKey("sasl.username", c.SASLUsername)
 		cfgMap.SetKey("sasl.password", c.SASLPassword)
-		cfgMap.SetKey("ssl.ca.location", c.SSLCALocation)
+
+		if c.SSLTruststoreLoc != "" {
+			cfgMap.SetKey("ssl.truststore.location", c.SSLTruststoreLoc)
+			cfgMap.SetKey("ssl.truststore.password", c.SSLTruststorePwd)
+			cfgMap.SetKey("ssl.truststore.type", c.SSLTruststoreType)
+		} else {
+			cfgMap.SetKey("ssl.ca.location", c.SSLCALocation)
+		}
 		cfgMap.SetKey("ssl.endpoint.identification.algorithm", "https")
 	}
 
@@ -96,7 +119,14 @@ func (c *Config) GetConsumerConfig() *kafka.ConfigMap {
 		cfgMap.SetKey("sasl.mechanism", "PLAIN")
 		cfgMap.SetKey("sasl.username", c.SASLUsername)
 		cfgMap.SetKey("sasl.password", c.SASLPassword)
-		cfgMap.SetKey("ssl.ca.location", c.SSLCALocation)
+
+		if c.SSLTruststoreLoc != "" {
+			cfgMap.SetKey("ssl.truststore.location", c.SSLTruststoreLoc)
+			cfgMap.SetKey("ssl.truststore.password", c.SSLTruststorePwd)
+			cfgMap.SetKey("ssl.truststore.type", c.SSLTruststoreType)
+		} else {
+			cfgMap.SetKey("ssl.ca.location", c.SSLCALocation)
+		}
 		cfgMap.SetKey("ssl.endpoint.identification.algorithm", "https")
 	}
 
