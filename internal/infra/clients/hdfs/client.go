@@ -4,6 +4,7 @@ package hdfs
 import (
 	"context"
 	"fmt"
+	"io"
 	"path"
 	"strings"
 	"time"
@@ -87,4 +88,51 @@ func (w *HDFSWriter) Close() error {
 		return w.client.Close()
 	}
 	return nil
+}
+
+func (w *HDFSWriter) ReadRecommendations(ctx context.Context) ([]byte, error) {
+	recPath := path.Join(w.basePath, "recommendations/part-00000")
+	file, err := w.client.Open(recPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open recommendations file: %w", err)
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read recommendations: %w", err)
+	}
+
+	return data, nil
+}
+
+func (w *HDFSWriter) ListFiles(ctx context.Context, dirPath string) ([]string, error) {
+	entries, err := w.client.ReadDir(dirPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list files: %w", err)
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			files = append(files, path.Join(dirPath, entry.Name()))
+		}
+	}
+
+	return files, nil
+}
+
+func (w *HDFSWriter) ReadFile(ctx context.Context, filePath string) ([]byte, error) {
+	file, err := w.client.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+
+	return data, nil
 }

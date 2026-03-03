@@ -4,6 +4,7 @@ package hdfs
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -169,4 +170,84 @@ func (w *WebHDFSWriter) WriteRequestData(ctx context.Context, data []byte, filen
 // Close метод-заглушка для WebHDFSWriter, так как HTTP клиент не требует закрытия.
 func (w *WebHDFSWriter) Close() error {
 	return nil
+}
+
+func (w *WebHDFSWriter) ReadRecommendations(ctx context.Context) ([]byte, error) {
+	recPath := path.Join(w.basePath, "recommendations/part-00000")
+	params := map[string]string{"op": "OPEN"}
+	fullURL := w.buildURL(recPath, params)
+
+	resp, err := http.Get(fullURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read recommendations: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to read recommendations: %d, %s", resp.StatusCode, string(body))
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
+func (w *WebHDFSWriter) ListFiles(ctx context.Context, dirPath string) ([]string, error) {
+	params := map[string]string{"op": "LISTSTATUS"}
+	fullURL := w.buildURL(dirPath, params)
+
+	resp, err := http.Get(fullURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list files: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to list files: %d, %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		FileStatuses struct {
+			FileStatus []struct {
+				PathSuffix string `json:"pathSuffix"`
+				Type       string `json:"type"`
+			} `json:"FileStatus"`
+		} `json:"FileStatuses"`
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	var files []string
+	for _, file := range result.FileStatuses.FileStatus {
+		if file.Type == "FILE" {
+			files = append(files, path.Join(dirPath, file.PathSuffix))
+		}
+	}
+
+	return files, nil
+}
+
+func (w *WebHDFSWriter) ReadFile(ctx context.Context, filePath string) ([]byte, error) {
+	params := map[string]string{"op": "OPEN"}
+	fullURL := w.buildURL(filePath, params)
+
+	resp, err := http.Get(fullURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to read file: %d, %s", resp.StatusCode, string(body))
+	}
+
+	return io.ReadAll(resp.Body)
 }

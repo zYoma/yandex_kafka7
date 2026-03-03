@@ -482,6 +482,37 @@ services:
     depends_on:
       - namenode
 
+  spark-master:
+    image: apache/spark:3.5.0-python3
+    container_name: spark-master
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    environment:
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+    volumes:
+      - ./spark-analytics:/opt/spark/jobs
+    networks:
+      - kafka-network
+    depends_on:
+      - namenode
+      - datanode
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+
+  spark-worker:
+    image: apache/spark:3.5.0-python3
+    ports:
+      - "18081:8081"
+    environment:
+      - SPARK_WORKER_MEMORY=1g
+      - SPARK_WORKER_CORES=1
+    networks:
+      - kafka-network
+    depends_on:
+      - spark-master
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+
 volumes:
   kafka_0_data:
   kafka_1_data:

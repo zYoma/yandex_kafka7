@@ -36,3 +36,24 @@ func (m *MockHDFSWriter) WriteRequestData(_ context.Context, _ []byte, _ string)
 func (m *MockHDFSWriter) Close() error {
 	return nil
 }
+
+func (m *MockHDFSWriter) ReadRecommendations(_ context.Context) ([]byte, error) {
+	mockData := `[
+		{"product_name": "智能手机", "search_count": 15},
+		{"product_name": "笔记本电脑", "search_count": 12},
+		{"product_name": "耳机", "search_count": 10}
+	]`
+	return []byte(mockData), nil
+}
+
+func (m *MockHDFSWriter) ListFiles(_ context.Context, path string) ([]string, error) {
+	return []string{
+		path + "/request1.json",
+		path + "/request2.json",
+	}, nil
+}
+
+func (m *MockHDFSWriter) ReadFile(_ context.Context, filePath string) ([]byte, error) {
+	mockRequest := `{"product_name": "test_product", "timestamp": "2024-01-01T00:00:00Z"}`
+	return []byte(mockRequest), nil
+}

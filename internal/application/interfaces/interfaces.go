@@ -17,6 +17,9 @@ type Consumer interface {
 
 type HDFSClient interface {
 	WriteRequestData(ctx context.Context, data []byte, filename string) error
+	ReadRecommendations(ctx context.Context) ([]byte, error)
+	ListFiles(ctx context.Context, path string) ([]string, error)
+	ReadFile(ctx context.Context, filePath string) ([]byte, error)
 	Close() error
 }
 

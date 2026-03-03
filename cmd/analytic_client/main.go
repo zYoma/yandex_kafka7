@@ -41,7 +41,7 @@ func main() {
 	}
 	defer hdfsClient.Close()
 
-	recProcessor := domain.NewRecommendationProcessor(producer, cfg.GetRecommendationsTopic())
+	recService := domain.NewRecommendationService(producer, cfg.GetRecommendationsTopic(), hdfsClient)
 
 	consumer, err := kafkacustom.NewKafkaConsumer(nil, cfg)
 	if err != nil {
@@ -51,7 +51,7 @@ func main() {
 	defer consumer.Consumer.Close()
 
 	consumer.SetHDFSClient(hdfsClient)
-	consumer.SetMessageProcessor(recProcessor)
+	consumer.SetMessageProcessor(recService)
 
 	err = consumer.Consumer.SubscribeTopics([]string{cfg.GetRequestsTopic()}, nil)
 	if err != nil {

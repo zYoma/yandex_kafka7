@@ -28,6 +28,7 @@
 ### Аналитика и хранение данных
 - **HDFS** — хранение больших объемов данных для аналитики
 - **Kafka Connect** — потоковая обработка и фильтрация данных
+- **Apache Spark** — распределенная обработка данных и генерация рекомендаций
 
 ### Мониторинг
 - **Prometheus** — сбор метрик с брокеров Kafka
@@ -39,6 +40,8 @@
 - **Go** — реализация SHOP API, CLIENT API и аналитического сервиса
 - **confluent-kafka-go** — официальный клиент Kafka для Go
 - **zap** — структурированное логирование
+- **PySpark** — распределенная обработка данных с Apache Spark
+- **Python 3.8** — выполнение PySpark jobs для аналитики
 
 ## Архитектура проекта
 
@@ -243,9 +246,38 @@ docker compose run --rm analytic_client /bin/analytic_client
 - Читает поисковые запросы из топика `requests`
 - Сохраняет запросы в HDFS для аналитики
 - Генерирует персонализированные рекомендации
-- Отправляет рекомендации в топик `recommendations`
 
-### Шаг 10. Использование CLIENT API
+### Шаг 10. Запуск Recommendation Service (Анализ популярности через Spark)
+
+```bash
+# Запуск Spark job для анализа популярности
+docker compose exec spark-master /opt/spark/bin/spark-submit \
+  --master spark://spark-master:7077 \
+  --name "Popular Products Analytics" \
+  --executor-memory "512m" \
+  /opt/spark/jobs/popular_products.py hdfs://namenode:9000/kafka_data
+```
+
+**Что делает PySpark job:**
+- Читает все файлы запросов из HDFS (`/kafka_data/requests/`)
+- Spark подсчитывает частоту поисковых запросов (распределенная обработка)
+- Сохраняет топ-10 популярных продуктов в HDFS (`/kafka_data/recommendations/part-00000`)
+- Обновляет рекомендации для `analytic_client`
+
+**Где Spark?**
+- `spark-master` контейнер: UI на http://localhost:8080
+- `spark-worker` контейнер: UI на http://localhost:18081, воркер для обработки
+- PySpark job в `spark-analytics/popular_products.py`
+
+**Периодический запуск:**
+Для автоматического обновления рекомендаций, используйте cron:
+
+```bash
+# crontab -e
+0 */6 * * * cd /path/to/project && docker compose exec -T spark-master /opt/spark/bin/spark-submit --master spark://spark-master:7077 /opt/spark/jobs/popular_products.py hdfs://namenode:9000/kafka_data
+```
+
+### Шаг 11. Использование CLIENT API
 
 ```bash
 # Поиск товара по имени

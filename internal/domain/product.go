@@ -3,7 +3,6 @@ package domain
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -32,57 +31,6 @@ type Image struct {
 	Alt *string `json:"alt"`
 }
 
-// RecommendationProcessor обрабатывает запросы и генерирует рекомендации.
-type RecommendationProcessor struct {
-	producer interfaces.Producer
-	recTopic string
-}
-
-func NewRecommendationProcessor(producer interfaces.Producer, recommendationsTopic string) *RecommendationProcessor {
-	return &RecommendationProcessor{
-		producer: producer,
-		recTopic: recommendationsTopic,
-	}
-}
-
-func (p *RecommendationProcessor) ProcessMessage(ctx context.Context, data []byte) error {
-	var strData string
-	decodedData := data
-
-	if err := json.Unmarshal(data, &strData); err == nil {
-		logger.Get().Sugar().Infof("Request is string-encoded: %s", strData)
-		decodedBytes, err := base64.StdEncoding.DecodeString(strings.Trim(strData, "\""))
-		if err == nil {
-			decodedData = decodedBytes
-			logger.Get().Sugar().Infof("Decoded base64 data: %s", string(decodedData))
-		}
-	}
-
-	var request Request
-	if err := json.Unmarshal(decodedData, &request); err != nil {
-		logger.Get().Sugar().Errorf("Failed to unmarshal request: %v, data: %s", err, string(decodedData))
-		return err
-	}
-
-	recommendation := Recommendation{
-		ProductID:    "rec_" + fmt.Sprintf("%d", time.Now().UnixNano()),
-		ProductName:  request.ProductName + " - Recommended",
-		Reason:       "Based on your search history",
-		Confidence:   0.85,
-		Alternatives: []string{"alt_1", "alt_2", "alt_3"},
-		Timestamp:    time.Now().Format(time.RFC3339),
-	}
-
-	if err := SendRecommendation(ctx, p.producer, p.recTopic, recommendation); err != nil {
-		logger.Get().Sugar().Errorf("Failed to send recommendation: %v", err)
-		return err
-	} else {
-		logger.Get().Sugar().Infof("Successfully sent recommendation for product: %s", request.ProductName)
-	}
-
-	return nil
-}
-
 // Product представляет товар в системе электронной коммерции.
 type Product struct {
 	ProductID      string             `json:"product_id"`
@@ -106,6 +54,11 @@ type Product struct {
 type Request struct {
 	ProductName string `json:"product_name"`
 	Timestamp   string `json:"timestamp"`
+}
+
+type PopularProduct struct {
+	ProductName string `json:"product_name"`
+	SearchCount int    `json:"search_count"`
 }
 
 // Recommendation представляет рекомендованную продукцию с указанием причины.
