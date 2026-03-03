@@ -1,3 +1,4 @@
+// Package kafka предоставляет реализацию Kafka консьюмера.
 package kafka
 
 import (
@@ -16,12 +17,12 @@ import (
 
 // Таймауты и параметры
 const (
-	timeoutMs      = 100
-	batchSize      = 50
-	batchTimeoutMs = 1000
+	timeoutMs      = 100  // таймаут для Poll в миллисекундах
+	batchSize      = 50   // размер батча сообщений
+	batchTimeoutMs = 1000 // таймаут сбора батча в миллисекундах
 )
 
-// KafkaConsumer структура клиента
+// KafkaConsumer реализует интерфейс Consumer для чтения сообщений из Kafka.
 type KafkaConsumer struct {
 	Consumer     *kafka.Consumer
 	Deserializer *avrov2.Deserializer
@@ -29,7 +30,7 @@ type KafkaConsumer struct {
 	HDFSClient   interfaces.HDFSClient
 }
 
-// partitionGroup структура для группирования сообщений по партициям
+// partitionGroup группирует сообщения по партициям для параллельной обработки.
 type partitionGroup struct {
 	tp   kafka.TopicPartition
 	msgs []*kafka.Message
@@ -50,11 +51,12 @@ func NewKafkaConsumer(deserializer *avrov2.Deserializer, cfg *config.Config) (*K
 	}, nil
 }
 
+// SetHDFSClient устанавливает HDFS клиент для консьюмера.
 func (c *KafkaConsumer) SetHDFSClient(client interfaces.HDFSClient) {
 	c.HDFSClient = client
 }
 
-// Десериализация сообщения
+// deserializeMessage десериализует сообщение из Kafka в указанную структуру.
 func (c *KafkaConsumer) deserializeMessage(msg *kafka.Message, data interface{}) error {
 	err := c.Deserializer.DeserializeInto(c.Config.Topic, msg.Value, data)
 	if err != nil {
@@ -64,7 +66,7 @@ func (c *KafkaConsumer) deserializeMessage(msg *kafka.Message, data interface{})
 	return nil
 }
 
-// Subscribe подписывает consumer на указанные топики
+// Subscribe подписывает консьюмер на топик из конфигурации.
 func (c *KafkaConsumer) Subscribe() error {
 	topics := []string{c.Config.Topic}
 	err := c.Consumer.SubscribeTopics(topics, c.rebalanceCallback)
@@ -74,7 +76,7 @@ func (c *KafkaConsumer) Subscribe() error {
 	return nil
 }
 
-// Start запускает консьюмер в BatchMessage режиме.
+// StartBatchMessage запускает консьюмер в режиме пакетной обработки сообщений.
 func (c *KafkaConsumer) StartBatchMessage(ctx context.Context) error {
 	defer c.Consumer.Close()
 
@@ -189,7 +191,7 @@ func (c *KafkaConsumer) StartBatchMessage(ctx context.Context) error {
 	}
 }
 
-// processPartition обрабатывает пачку сообщений для одной партиции
+// processPartition обрабатывает пачку сообщений для одной партиции.
 func (c *KafkaConsumer) processPartition(ctx context.Context, tp kafka.TopicPartition, msgs []*kafka.Message) error {
 	// Получаем offset'ы для пачки
 	firstOffset := msgs[0].TopicPartition.Offset
@@ -238,7 +240,7 @@ func (c *KafkaConsumer) processPartition(ctx context.Context, tp kafka.TopicPart
 	}
 }
 
-// commitPartition коммитит обработанные сообщения
+// commitPartition коммитит обработанные сообщения для партиции.
 func (c *KafkaConsumer) commitPartition(tp kafka.TopicPartition, lastOffset kafka.Offset) error {
 	_, err := c.Consumer.CommitOffsets([]kafka.TopicPartition{{
 		Topic:     tp.Topic,
@@ -254,7 +256,7 @@ func (c *KafkaConsumer) commitPartition(tp kafka.TopicPartition, lastOffset kafk
 	return nil
 }
 
-// rollbackPartition возвращает оффсет при неудачной обработке
+// rollbackPartition возвращает оффсет в начало пачки при неудачной обработке.
 func (c *KafkaConsumer) rollbackPartition(tp kafka.TopicPartition, firstOffset kafka.Offset) error {
 	err := c.Consumer.Seek(kafka.TopicPartition{
 		Topic:     tp.Topic,
@@ -275,6 +277,7 @@ func (c *KafkaConsumer) rollbackPartition(tp kafka.TopicPartition, firstOffset k
 	return nil
 }
 
+// rebalanceCallback обрабатывает события перебалансировки консьюмера.
 func (c *KafkaConsumer) rebalanceCallback(k *kafka.Consumer, event kafka.Event) error {
 	switch ev := event.(type) {
 

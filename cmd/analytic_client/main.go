@@ -1,3 +1,4 @@
+// Package main содержит точку входа для аналитического консьюмера.
 package main
 
 import (
@@ -12,6 +13,7 @@ import (
 	"github.com/zYoma/yandex_kafka7/internal/logger"
 )
 
+// main запускает аналитический консьюмер, обрабатывает поисковые запросы, сохраняет в HDFS и отправляет рекомендации.
 func main() {
 	cfg, err := config.GetConfig()
 	if err != nil {

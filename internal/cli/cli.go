@@ -1,3 +1,4 @@
+// Package cli предоставляет реализацию CLI клиента для работы с системой товаров и рекомендаций.
 package cli
 
 import (
@@ -9,6 +10,7 @@ import (
 	"github.com/zYoma/yandex_kafka7/internal/domain"
 )
 
+// CLI представляет командную строку для поиска товаров и получения рекомендаций.
 type CLI struct {
 	producer             interfaces.Producer
 	consumer             interfaces.Consumer
@@ -17,6 +19,7 @@ type CLI struct {
 	recommendationsTopic string
 }
 
+// NewCLI создает новый CLI клиент с загруженными продуктами из файла.
 func NewCLI(producer interfaces.Producer, consumer interfaces.Consumer, productsFile string, requestsTopic string, recommendationsTopic string) (*CLI, error) {
 	products, err := domain.LoadFilteredProducts(productsFile)
 	if err != nil {
@@ -32,6 +35,7 @@ func NewCLI(producer interfaces.Producer, consumer interfaces.Consumer, products
 	}, nil
 }
 
+// Search выполняет поиск товаров по имени, отображает результаты и отправляет запрос в Kafka для аналитики.
 func (c *CLI) Search(ctx context.Context, productName string) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -62,6 +66,7 @@ func (c *CLI) Search(ctx context.Context, productName string) error {
 	return nil
 }
 
+// GetRecommendations читает и отображает одну рекомендацию из топика Kafka.
 func (c *CLI) GetRecommendations(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
@@ -78,6 +83,7 @@ func (c *CLI) GetRecommendations(ctx context.Context) error {
 	return nil
 }
 
+// Run обрабатывает команду CLI с указанными аргументами.
 func (c *CLI) Run(ctx context.Context, command string, args []string) error {
 	switch command {
 	case "search":

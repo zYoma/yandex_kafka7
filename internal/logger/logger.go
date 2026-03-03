@@ -1,3 +1,4 @@
+// Package logger предоставляет синглтон логгер на базе zap.
 package logger
 
 import (
@@ -8,11 +9,11 @@ import (
 )
 
 var (
-	logger *zap.Logger
-	once   sync.Once
+	logger *zap.Logger // синглтон логгер
+	once   sync.Once   // флаг для однократной инициализации
 )
 
-// Get возвращает синглтон логгер
+// Get возвращает синглтон логгер, создавая его при первом вызове.
 func Get() *zap.Logger {
 	once.Do(func() {
 		// Создаем конфигурацию для консольного логгера без JSON

@@ -1,3 +1,4 @@
+// Package domain содержит бизнес-логику и сущности: Product, Recommendation, Request.
 package domain
 
 import (
@@ -17,10 +18,12 @@ import (
 
 type ErrAppStopped struct{}
 
+// Error возвращает строковое представление ошибки остановки приложения.
 func (e ErrAppStopped) Error() string {
 	return "application stopped"
 }
 
+// ConsumerConfig определяет интерфейс для получения конфигурации консьюмера.
 type ConsumerConfig interface {
 	GetConsumerConfig() *kafkago.ConfigMap
 	GetProducerConfig() *kafkago.ConfigMap
@@ -29,12 +32,14 @@ type ConsumerConfig interface {
 	GetRecommendationsTopic() string
 }
 
+// AnalyticsService обрабатывает поисковые запросы, сохраняет их в HDFS и отправляет рекомендации.
 type AnalyticsService struct {
 	producer interfaces.Producer
 	hdfs     interfaces.HDFSClient
 	cfg      ConsumerConfig
 }
 
+// NewAnalyticsService создает новый сервис аналитики с указанными зависимостями.
 func NewAnalyticsService(producer interfaces.Producer, hdfs interfaces.HDFSClient, cfg ConsumerConfig) *AnalyticsService {
 	return &AnalyticsService{
 		producer: producer,
@@ -43,6 +48,7 @@ func NewAnalyticsService(producer interfaces.Producer, hdfs interfaces.HDFSClien
 	}
 }
 
+// Run запускает сервис аналитики для обработки поисковых запросов из Kafka.
 func (s *AnalyticsService) Run(ctx context.Context) error {
 	cfgMap := s.cfg.GetConsumerConfig()
 	kafkaConsumer, err := kafkago.NewConsumer(cfgMap)
@@ -94,6 +100,7 @@ func (s *AnalyticsService) Run(ctx context.Context) error {
 	}
 }
 
+// sendRecommendation генерирует и отправляет персонализированную рекомендацию в Kafka.
 func (s *AnalyticsService) sendRecommendation(ctx context.Context, requestData []byte) {
 	data := requestData
 
@@ -136,16 +143,19 @@ type Price struct {
 	Currency string  `json:"currency"`
 }
 
+// Stock представляет информацию о наличии товара на складе.
 type Stock struct {
 	Available *int `json:"available"`
 	Reserved  *int `json:"reserved"`
 }
 
+// Image представляет информацию об изображении товара.
 type Image struct {
 	Url *string `json:"url"`
 	Alt *string `json:"alt"`
 }
 
+// Product представляет товар в системе электронной коммерции.
 type Product struct {
 	ProductID      string             `json:"product_id"`
 	Name           string             `json:"name"`
@@ -164,11 +174,13 @@ type Product struct {
 	StoreID        *string            `json:"store_id"`
 }
 
+// Request представляет поисковый запрос от пользователя.
 type Request struct {
 	ProductName string `json:"product_name"`
 	Timestamp   string `json:"timestamp"`
 }
 
+// Recommendation представляет рекомендованную продукцию с указанием причины.
 type Recommendation struct {
 	ProductID    string   `json:"product_id"`
 	ProductName  string   `json:"product_name"`
@@ -178,6 +190,7 @@ type Recommendation struct {
 	Timestamp    string   `json:"timestamp"`
 }
 
+// SendProductsFromFile читает товары из JSON файла и отправляет их в Kafka.
 func SendProductsFromFile(ctx context.Context, producer interfaces.Producer, topic string, filePath string) error {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -197,6 +210,7 @@ func SendProductsFromFile(ctx context.Context, producer interfaces.Producer, top
 	return producer.SendMessages(ctx, messages)
 }
 
+// FilteredProduct представляет отфильтрованный продукт из файла вывода Kafka Connect.
 type FilteredProduct struct {
 	Price     Price
 	ProductID string
@@ -204,6 +218,7 @@ type FilteredProduct struct {
 	Category  string
 }
 
+// parsePrice парсит строку цены из формата "amount=X, currency=Y".
 func parsePrice(priceStr string) (Price, error) {
 	re := regexp.MustCompile(`amount=([0-9.]+),\s*currency=(\w+)`)
 	matches := re.FindStringSubmatch(priceStr)
@@ -223,6 +238,7 @@ func parsePrice(priceStr string) (Price, error) {
 	}, nil
 }
 
+// parseFilteredProductLine парсит строку из файла filtered-products.txt в структуру FilteredProduct.
 func parseFilteredProductLine(line string) (FilteredProduct, error) {
 	product := FilteredProduct{}
 
@@ -256,6 +272,7 @@ func parseFilteredProductLine(line string) (FilteredProduct, error) {
 	return product, nil
 }
 
+// LoadFilteredProducts загружает отфильтрованные продукты из файла.
 func LoadFilteredProducts(filePath string) ([]FilteredProduct, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -282,6 +299,7 @@ func LoadFilteredProducts(filePath string) ([]FilteredProduct, error) {
 	return products, nil
 }
 
+// SearchProductsByName выполняет поиск продуктов по имени без учета регистра.
 func SearchProductsByName(products []FilteredProduct, name string) []FilteredProduct {
 	var results []FilteredProduct
 	nameLower := strings.ToLower(name)
@@ -295,6 +313,7 @@ func SearchProductsByName(products []FilteredProduct, name string) []FilteredPro
 	return results
 }
 
+// SendSearchRequest отправляет поисковый запрос в Kafka топик для аналитики.
 func SendSearchRequest(ctx context.Context, producer interfaces.Producer, topic string, productName string) error {
 	request := Request{
 		ProductName: productName,
@@ -310,6 +329,7 @@ func SendSearchRequest(ctx context.Context, producer interfaces.Producer, topic 
 	return producer.SendMessages(ctx, []interface{}{value})
 }
 
+// SendRecommendation отправляет рекомендацию в Kafka топик.
 func SendRecommendation(ctx context.Context, producer interfaces.Producer, topic string, recommendation Recommendation) error {
 	value, err := json.Marshal(recommendation)
 	if err != nil {

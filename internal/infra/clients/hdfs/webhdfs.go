@@ -1,3 +1,4 @@
+// Package hdfs предоставляет клиент для работы с HDFS через WebHDFS API.
 package hdfs
 
 import (
@@ -14,6 +15,7 @@ import (
 	"github.com/zYoma/yandex_kafka7/internal/logger"
 )
 
+// WebHDFSWriter реализует запись данных в HDFS через WebHDFS HTTP API.
 type WebHDFSWriter struct {
 	baseURL   string
 	user      string
@@ -21,6 +23,7 @@ type WebHDFSWriter struct {
 	batchSize int
 }
 
+// NewWebHDFSWriter создает новый клиент WebHDFS с указанной конфигурацией.
 func NewWebHDFSWriter(cfg *HDFSWriterConfig) (*WebHDFSWriter, error) {
 	addresses := strings.Split(cfg.Addresses, ",")[0]
 	port := cfg.Port
@@ -48,6 +51,7 @@ func NewWebHDFSWriter(cfg *HDFSWriterConfig) (*WebHDFSWriter, error) {
 	}, nil
 }
 
+// buildURL строит полный URL для WebHDFS API запроса с указанными параметрами.
 func (w *WebHDFSWriter) buildURL(hdfsPath string, params map[string]string) string {
 	u, _ := url.Parse(w.baseURL + "/webhdfs/v1" + hdfsPath)
 	q := u.Query()
@@ -59,6 +63,7 @@ func (w *WebHDFSWriter) buildURL(hdfsPath string, params map[string]string) stri
 	return u.String()
 }
 
+// mkdir создает директорию в HDFS через WebHDFS API.
 func (w *WebHDFSWriter) mkdir(hdfsPath string) error {
 	params := map[string]string{
 		"op":         "MKDIRS",
@@ -85,6 +90,7 @@ func (w *WebHDFSWriter) mkdir(hdfsPath string) error {
 	return nil
 }
 
+// write записывает данные в файл в HDFS через WebHDFS API с перенаправлением.
 func (w *WebHDFSWriter) write(hdfsPath string, content string) (*http.Response, error) {
 	params := map[string]string{
 		"op":        "CREATE",
@@ -133,6 +139,7 @@ func (w *WebHDFSWriter) write(hdfsPath string, content string) (*http.Response, 
 	return http.DefaultClient.Do(req2)
 }
 
+// WriteRequestData записывает данные запроса в файл в HDFS через WebHDFS API.
 func (w *WebHDFSWriter) WriteRequestData(ctx context.Context, data []byte, filename string) error {
 	logger.Get().Sugar().Infof("WebHDFS: Запись данных запроса: %s", filename)
 
@@ -159,6 +166,7 @@ func (w *WebHDFSWriter) WriteRequestData(ctx context.Context, data []byte, filen
 	return nil
 }
 
+// Close метод-заглушка для WebHDFSWriter, так как HTTP клиент не требует закрытия.
 func (w *WebHDFSWriter) Close() error {
 	return nil
 }

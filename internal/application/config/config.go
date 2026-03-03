@@ -1,3 +1,4 @@
+// Package config предоставляет конфигурацию приложения из переменных окружения.
 package config
 
 import (
@@ -7,7 +8,7 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
-// Config представляет конфигурацию
+// Config содержит конфигурацию для подключения к Kafka, Schema Registry и HDFS.
 type Config struct {
 	BootstrapServers         string `env:"BOOTSTRAP_SERVER" envDefault:"kafka-0:9092,kafka-1:9092,kafka-2:9092"`
 	Topic                    string `env:"TOPIC" envDefault:"test_topic"`
@@ -45,10 +46,12 @@ type Config struct {
 	DataprocMasterHost string `env:"DATAPROC_MASTER_HOST" envDefault:""`
 }
 
+// GetBootstrapServers возвращает адреса брокеров Kafka.
 func (c *Config) GetBootstrapServers() string {
 	return c.BootstrapServers
 }
 
+// GetRequestsTopic возвращает имя топика для запросов поиска.
 func (c *Config) GetRequestsTopic() string {
 	return c.RequestsTopic
 }
@@ -57,7 +60,7 @@ func (c *Config) GetRecommendationsTopic() string {
 	return c.RecommendationsTopic
 }
 
-// GetConfig возвращает конфигурацию приложения из переменных окружения.
+// GetConfig загружает конфигурацию приложения из переменных окружения.
 func GetConfig() (*Config, error) {
 	cfg := &Config{}
 	if err := env.Parse(cfg); err != nil {

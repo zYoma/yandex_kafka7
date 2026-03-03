@@ -1,298 +1,218 @@
-# Yandex Kafka Проект
+# Аналитическая платформа для маркетплейса
 
-Учебный проект с двумя кластерами Kafka и Schema Registry с автоматической репликацией данных.
+Проект представляет собой полнофункциональную аналитическую платформу для маркетплейса на базе Apache Kafka. Платформа обрабатывает данные от магазинов, формирует персонализированные рекомендации и предоставляет клиентам интерфейс для поиска товаров.
 
-## Быстрый старт
+## Назначение проекта
+
+Аналитическая платформа решает следующие задачи:
+- Сбор информации о товарах от магазинов через SHOP API
+- Обработка поисковых запросов клиентов через CLIENT API
+- Фильтрация товаров на основе списка запрещенных продуктов
+- Хранение и поиск данных через Kafka Connect
+- Аналитическая обработка данных и формирование рекомендаций
+- Мониторинг всех компонентов инфраструктуры
+
+## Используемые технологии
+
+### Основные компоненты
+- **Apache Kafka 3.x** — распределённая платформа потоковой обработки данных
+- **Schema Registry** — управление схемами данных в формате Avro
+- **MirrorMaker 2** — репликация данных между кластерами Kafka
+- **Kafka Connect** — интеграция с внешними системами
+
+### Безопасность
+- **SASL_SSL** — безопасная передача данных с SSL-шифрованием
+- **PLAIN механизм** — аутентификация пользователей
+- **ACL** — управление доступом к топикам и операциям
+
+### Аналитика и хранение данных
+- **HDFS** — хранение больших объемов данных для аналитики
+- **Kafka Connect** — потоковая обработка и фильтрация данных
+
+### Мониторинг
+- **Prometheus** — сбор метрик с брокеров Kafka
+- **Grafana** — визуализация метрик на дашбордах
+- **Alertmanager** — обработка алертов и отправка уведомлений
+- **JMX Exporter** — экспорт метрик JVM Kafka
+
+### Языки и библиотеки
+- **Go** — реализация SHOP API, CLIENT API и аналитического сервиса
+- **confluent-kafka-go** — официальный клиент Kafka для Go
+- **zap** — структурированное логирование
+
+## Архитектура проекта
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           Магазины (Клиенты)                             │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              SHOP API                                    │
+│                     (cmd/shop/main.go)                                  │
+│  Чтение товаров из JSON файла → Отправка в Kafka                        │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Кластер Kafka 1 (Source)                             │
+│  ┌─────────────┬─────────────┬─────────────┐                           │
+│  │  kafka-0    │  kafka-1    │  kafka-2    │                           │
+│  │  (9094)     │  (9095)     │  (9096)     │                           │
+│  └─────────────┴─────────────┴─────────────┘                           │
+│                                                                         │
+│  Топики:                                                                │
+│  • shops_data — товары от магазинов                                     │
+│  • requests — поисковые запросы клиентов                                │
+│  • recommendations — персональные рекомендации                          │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │                               │
+                    ▼                               ▼
+┌───────────────────────────┐      ┌──────────────────────────────────────┐
+│    Kafka Connect          │      │     MirrorMaker 2                   │
+│  (Потоковая обработка)    │      │  (Репликация данных)                │
+│  • Фильтрация товаров     │      │                                      │
+│  • Запись в файл          │      │                                      │
+└───────────────────────────┘      └──────────────────────────────────────┘
+                    │                               │
+                    ▼                               ▼
+┌───────────────────────────┐    ┌──────────────────────────────────────────┐
+│   Файл данных             │    │  Кластер Kafka 2 (Target)              │
+│  filtered-products.txt    │    │  ┌────────┬────────┬────────┐           │
+└───────────────────────────┘    │  │kafka-3 │kafka-4 │kafka-5 │           │
+                                 │  └────────┴────────┴────────┘           │
+                                 └──────────────────────────────────────────┘
+                                                   │
+                                                   ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Аналитическая система                                │
+│                   (cmd/analytic_client/main.go)                         │
+│  Чтение запросов → Сохранение в HDFS → Генерация рекомендаций          │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Топик recommendations                                 │
+│                      (в обоих кластерах)                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              CLIENT API                                  │
+│                      (cmd/client/main.go)                               │
+│  • Поиск товаров по имени                                               │
+│  • Получение персональных рекомендаций                                 │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+## Инструкция по запуску
+
+### Предварительные требования
+
+- Docker (версия 20.x и выше)
+- Docker Compose (версия 2.x и выше)
+- Go (версия 1.21 и выше) — для сборки приложений
+- Не менее 8 GB свободной оперативной памяти
+
+### Шаг 1. Клонирование репозитория и сборка приложений
 
 ```bash
-# Запуск всех сервисов
+# Клонирование репозитория
+git clone <repository_url>
+cd yandex_kafka7
+
+# Сборка Go приложений
+go build -o bin/shop ./cmd/shop
+go build -o bin/analytic_client ./cmd/analytic_client
+go build -o bin/client ./cmd/client
+```
+
+### Шаг 2. Запуск инфраструктуры Kafka
+
+```bash
+# Запуск всех сервисов (Kafka, Schema Registry, MirrorMaker)
 docker compose up -d
 
-# Подождать инициализации сервисов (~25 секунд)
+# Ожидание инициализации сервисов (~25-30 секунд)
+sleep 30
 
-# Настройка топиков, пользователей и ACL для обоих кластеров
+# Проверка статуса сервисов
+docker compose ps
+```
+
+### Шаг 3. Настройка первого кластера Kafka (Source)
+
+```bash
+# Настройка топиков, пользователей и ACL для первого кластера
 ./scripts/setup-all.sh
+```
+
+**Что делает скрипт:**
+- Создает пользователей Kafka (admin, user, shop_client, analytic_client, filter_client, client)
+- Создает топики: `shops_data`, `requests`, `recommendations`
+- Настраивает ACL права для каждого пользователя
+- Настраивает минимальное количество синхронных реплик (min.insync.replicas = 2)
+
+### Шаг 4. Настройка второго кластера Kafka (Target)
+
+```bash
+# Настройка ACL для второго кластера
 ./scripts/setup-target-cluster-acls.sh
-
-# (Опционально) Тестирование репликации
-./scripts/test-replication.sh
 ```
 
-## CLI Приложение
+**Что делает скрипт:**
+- Создает пользователей во втором кластере
+- Настраивает ACL права для аналитического клиента
+- Проверяет репликацию топиков из первого кластера
 
-Интерактивный клиент для работы с системой рекомендаций и поиска товаров.
-
-### Запуск через Docker
-
-CLI - это интерактивное приложение, поэтому запускайте его через `run`, а не `up`:
-
-```bash
-# Через скрипт
-./scripts/docker-cli.sh search "Тестовый"
-./scripts/docker-cli.sh recommendations
-./scripts/docker-cli.sh send-recommendations
-
-# Прямой запуск
-docker compose run --rm client /app/yandex-kafka-client search "Тестовый"
-docker compose run --rm analytic_client /app/yandex-kafka-analytic
-```
-
-**Важно:** НЕ используйте `docker compose up client` - CLI приложения запускаются через `run`.
-
-### Функциональность
-
-- **Поиск товаров**: Поиск в файле `kafka-connect/output/filtered-products.txt` с отправкой запроса в Kafka для аналитики
-- **Рекомендации**: Получение персонализированных рекомендаций из Kafka
-
-См. [DOCKER_CLI.md](DOCKER_CLI.md) для подробной документации по Docker.
-
-## Сервисы
-
-### Кластеры Kafka
-- **Кластер 1 (Source)**: kafka-0 (9094), kafka-1 (9095), kafka-2 (9096)
-- **Кластер 2 (Target)**: kafka-3 (9097), kafka-4 (9098), kafka-5 (9099)
-
-Оба кластера настроены с:
-- SASL_SSL аутентификацией
-- PLAIN механизмом
-- ACL авторизацией включена
-
-### Schema Registry
-- URL: http://localhost:8081
-- Подключен к: Кластер 1 (Source)
-- Хранит схемы в топике `_schemas`
-
-### MirrorMaker 2
-- Реплицирует данные из Кластер 1 в Кластер 2
-- Реплицирует топики автоматически с настройкой `.*` Regex
-- Создаёт топики в целевом кластере с такими же параметрами
-- Реплицирует метаданные о топиках и конфигурации
-
-## Пользователи и права доступа
-
-| Пользователь    | Пароль        | Роль                  | Доступ                                   |
-|-----------------|---------------|-----------------------|------------------------------------------|
-| admin           | admin-secret  | Суперпользователь     | Все операции, управление                 |
-| user            | user-secret   | Интер-брокер          | Необходим для внутренней репликации Kafka |
-| shop_client     | shop-secret   | Продюсер              | WRITE в `shops_data`                      |
-| analytic_client | analytic-secret| Консьюмер/Продюсер   | READ из `shops_data`, WRITE в `recommendations` |
-| filter_client   | filter-secret  | Консьюмер           | READ из `shops_data`                      |
-| client          | client-secret  | CLI Пользователь      | READ из `recommendations`, WRITE в `requests` |
-
-## Топики
-
-| Топик           | Кластер   | Партиции | Репликация | Продюсер      | Консьюмеры                         |
-|-----------------|-----------|-----------|------------|---------------|-------------------------------------|
-| shops_data      | Both      | 3         | 3          | shop_client   | analytic_client, filter_client      |
-| recommendations | Both      | 3         | 3          | analytic_client | client                             |
-| requests        | Both      | 3         | 3          | client        | - (для аналитики)                   |
-
-Все топики из Кластер 1 автоматически реплицируются в Кластер 2 с помощью MirrorMaker 2.
-
-## Репликация данных
-
-### Как работает репликация
-
-1. **MirrorMaker 2** реплицирует все топики из Кластер 1 (Source) в Кластер 2 (Target)
-2. Репликация происходит в реальном времени (с небольшими задержками)
-3. Конфигурация: `source->target.topics = .*` (все топики)
-4. Конфигурация: `source->target.replication.policy.class = org.apache.kafka.connect.mirror.IdentityReplicationPolicy` (сохраняет имена топиков)
-
-### Топики репликации
-
-MirrorMaker 2 автоматически реплицирует:
-- Пользовательские топики (например, `shops_data`)
-- Системные топики (например, `_schemas`)
-- Создаёт служебные топики для отслеживания репликации
-
-### Проверка репликации
+### Шаг 5. Настройка Schema Registry
 
 ```bash
-# Создать тестовое сообщение в кластере 1
-./scripts/test-replication.sh
-
-# Проверить сообщения в кластере 2 (целевой)
-docker exec yandex_kafka7-kafka-3-1 kafka-console-consumer.sh \
-  --bootstrap-server kafka-3:9094 \
-  --topic shops_data \
-  --from-beginning \
-  --max-messages 10 \
-  --consumer.config /opt/bitnami/kafka/config/client.properties
-
-# Список всех топиков в целевом кластере
-docker exec yandex_kafka7-kafka-3-1 kafka-topics.sh \
-  --bootstrap-server kafka-3:9091 \
-  --list \
-  --command-config /opt/bitnami/kafka/config/client.properties
-
-# Статус репликации
-docker compose logs mirror-maker | tail -20
-```
-
-## Скрипты
-
-Каталог `scripts/` содержит скрипты для настройки Kafka, ACL и управления Kafka Connect.
-
-Подробнее о скриптах см. [scripts/README.md](scripts/README.md)
-
-**Основные скрипты:**
-- `setup-all.sh` - настройка первого кластера
-- `setup-target-cluster-acls.sh` - настройка второго кластера
-- `setup-kafka-connect.sh` - настройка Kafka Connect
-- `connector-manager.sh` - управление коннекторами
-- `manage-products.sh` - управление списком разрешённых product_id
-- `test-replication.sh` - тестирование репликации
-
-## Конфигурация безопасности
-
-- **Протокол**: SASL_SSL
-- **Механизм**: PLAIN
-- **SSL**: Вся внутренняя и внешняя коммуникация зашифрована
-- **ACL**: Строгий режим (deny by default)
-
-## Разработка
-
-Кластер настроен для учебных целей с:
-- Чётким разделением ролей продюсер/консьюмер
-- Правильным enforcement'ом ACL
-- Интеграцией Schema Registry
-- Мульти-кластерной настройкой для тестирования репликации
-
-## Примеры подключения
-
-### Продюсер (shop_client)
-```bash
-security.protocol=SASL_SSL
-sasl.mechanism=PLAIN
-sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="shop_client" password="shop-secret";
-ssl.truststore.location=/path/to/kafka.truststore.jks
-ssl.truststore.password=password
-ssl.endpoint.identification.algorithm=
-bootstrap.servers=localhost:9094,localhost:9095,localhost:9096
-```
-
-### Консьюмер (analytic_client/filter_client)
-```bash
-security.protocol=SASL_SSL
-sasl.mechanism=PLAIN
-sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="analytic_client" password="analytic-secret";
-ssl.truststore.location=/path/to/kafka.truststore.jks
-ssl.truststore.password=password
-ssl.endpoint.identification.algorithm=
-bootstrap.servers=localhost:9094,localhost:9095,localhost:9096
-```
-
-## Устранение проблем
-
-Проверить логи:
-```bash
-docker compose logs kafka-0
-docker compose logs schema-registry
-```
-
-Проверить ACL:
-```bash
-docker exec yandex_kafka7-kafka-0-1 kafka-acls.sh \
-  --bootstrap-server kafka-0:9091 \
-  --list
-```
-
-Проверить репликацию:
-```bash
-# Логи MirrorMaker
-docker compose logs mirror-maker
-
-# Ловг целевого кластера
-docker compose logs kafka-3
-
-# Список топиков в обоих кластерах
-docker exec yandex_kafka7-kafka-0-1 kafka-topics.sh --bootstrap-server kafka-0:9091 --list --command-config /opt/bitnami/kafka/config/client.properties
-docker exec yandex_kafka7-kafka-3-1 kafka-topics.sh --bootstrap-server kafka-3:9091 --list --command-config /opt/bitnami/kafka/config/client.properties
-```
-
-## Kafka Connect
-
-Kafka Connect сервис настроен для фильтрации данных из топика shops_data_json и записи в файл с использованием Avro формата и Schema Registry.
-
-⚡ **JAR плагин уже скомпилирован и готов к использованию!**
-
-### Настройка Schema Registry
-
-Схемы для товаров хранятся в Schema Registry.
-
-```bash
-# 1. Зарегистрировать схему для товаров
+# Регистрация Avro схемы для товаров
 ./scripts/schema-manager.sh register
 
-# 2. Проверить зарегистрированные схемы
+# Проверка зарегистрированных схем
 ./scripts/schema-manager.sh list
-
-# 3. Получить текущую схему
-./scripts/schema-manager.sh get
 ```
 
-### Настройка Kafka Connect
+**Что делает скрипт:**
+- Регистрирует схему товара в Schema Registry
+- Позволяет просматривать версии схемы
+
+### Шаг 6. Настройка Kafka Connect
 
 ```bash
-# 1. Настроить ACL и топики для Connect
+# Настройка ACL и топиков для Kafka Connect
 ./scripts/setup-kafka-connect.sh
 
-# 2. Перезапустить Connect для загрузки плагина
+# Перезапуск Connect для загрузки плагинов
 docker compose restart kafka-connect
 
-# 3. Развернуть коннектор
+# Ожидание запуска (~10 секунд)
+sleep 10
+
+# Развертывание коннектора для фильтрации товаров
 ./scripts/connector-manager.sh deploy
 ```
 
-### Сборка плагина (при необходимости)
+**Что делают скрипты:**
+- `setup-kafka-connect.sh`: создает пользователей и ACL для Connect
+- `connector-manager.sh deploy`: настраивает коннектор для чтения из `shops_data`, фильтрации по списку разрешенных товаров и записи в файл
 
-Если вы измените исходный код трансформера или хотите перекомпилировать JAR:
-
-```bash
-cd kafka-connect
-./build-plugin.sh --force
-```
-
-Скрипт `build-plugin.sh` автоматически использует Maven, если он установлен, или Docker с Maven в противном случае.
-
-### Хранение JAR в репозитории
-
-Для учебных projects скомпилированный JAR хранится в репозитории (`kafka-connect/plugins/lib/`), что упрощает использование без установки Maven.
-
-**Преимущества:**
-- Не требует установки Maven для обычных пользователей
-- Быстрый старт проекта
-- Гарантированная совместимость версий
-
-### Конфигурация с Schema Registry
-
-Kafka Connect настроен для использования Avro формата с Schema Registry:
-
-- **Value Converter**: `io.confluent.connect.avro.AvroConverter`
-- **Schema Registry URL**: `http://schema-registry:8081`
-- **Топик со схемой**: `shops_data_json-value`
-
-Для изменения схемы необходимо:
-1. Обновить файл `kafka-connect/product-schema-avro.json`
-2. Зарегистрировать новую версию: `./scripts/schema-manager.sh register`
-3. Отправить сообщения, соответствующие схеме
-
-### Управление списком разрешенных товаров
-
-CLI скрипт для управления списком product_id, которые пропускаются фильтром:
+### Шаг 7. Управление списком разрешенных товаров
 
 ```bash
-# Показать все разрешенные product_id
+# Просмотр списка разрешенных product_id
 ./scripts/manage-products.sh list
 
-# Добавить product_id
-./scripts/manage-products.sh add "99999"
+# Добавление товара в разрешенный список
+./scripts/manage-products.sh add "12345"
 
-# Удалить product_id
-./scripts/manage-products.sh remove "99999"
-
-# Очистить весь список
-./scripts/manage-products.sh clear
+# Удаление товара из списка
+./scripts/manage-products.sh remove "12345"
 ```
 
 После изменения списка нужно перезапустить Kafka Connect:
@@ -300,163 +220,202 @@ CLI скрипт для управления списком product_id, кото
 docker compose restart kafka-connect
 ```
 
-### Управление коннектором
+### Шаг 8. Запуск SHOP API (Отправка товаров)
 
 ```bash
-# Развернуть коннектор
-./scripts/connector-manager.sh deploy
+# Отправка товаров из файла в Kafka
+docker compose run --rm shop /bin/shop
+```
 
-# Удалить коннектор
-./scripts/connector-manager.sh delete
+**Что делает SHOP API:**
+- Читает товары из файла `products_source.json`
+- Отправляет данные в топик `shops_data` в формате Avro
+- Данные проходят через Schema Registry
 
-# Проверить статус коннектора
+### Шаг 9. Запуск аналитического сервиса
+
+```bash
+# Запуск аналитического консьюмера
+docker compose run --rm analytic_client /bin/analytic_client
+```
+
+**Что делает аналитический сервис:**
+- Читает поисковые запросы из топика `requests`
+- Сохраняет запросы в HDFS для аналитики
+- Генерирует персонализированные рекомендации
+- Отправляет рекомендации в топик `recommendations`
+
+### Шаг 10. Использование CLIENT API
+
+```bash
+# Поиск товара по имени
+docker compose run --rm client /bin/client search "часы"
+
+# Получение персонализированных рекомендаций
+docker compose run --rm client /bin/client recommendations
+```
+
+**Что делает CLIENT API:**
+- `search`: ищет товары в файле отфильтрованных данных, отправляет запрос в Kafka для аналитики
+- `recommendations`: читает рекомендацию из топика `recommendations`
+
+### Шаг 11. Проверка репликации данных
+
+```bash
+# Тестирование репликации между кластерами
+./scripts/test-replication.sh
+
+# Проверка сообщений во втором кластере
+docker exec yandex_kafka7-kafka-3-1 kafka-console-consumer.sh \
+  --bootstrap-server kafka-3:9094 \
+  --topic shops_data \
+  --from-beginning \
+  --max-messages 5 \
+  --consumer.config /opt/bitnami/kafka/config/client.properties
+```
+
+### Шаг 12. Проверка мониторинга
+
+```bash
+# Проверка метрик JMX
+curl http://localhost:7071/metrics
+
+# Проверка статуса Prometheus
+curl http://localhost:9090/api/v1/targets
+
+# Проверка алертов в Prometheus
+curl http://localhost:9090/api/v1/alerts
+```
+
+**Доступ к дашбордам:**
+- **Prometheus**: http://localhost:9090
+- **Grafana**: http://localhost:3000 (логин: `admin`, пароль: `admin`)
+- **Alertmanager**: http://localhost:9093
+
+## Проверка выполнения критериев
+
+### ✓ Kafka успешно передаёт данные между сервисами
+
+**Проверка:**
+```bash
+# Проверить сообщения в топике shops_data
+docker exec yandex_kafka7-kafka-0-1 kafka-console-consumer.sh \
+  --bootstrap-server kafka-0:9094 \
+  --topic shops_data \
+  --from-beginning \
+  --max-messages 5 \
+  --consumer.config /opt/bitnami/kafka/config/client.properties
+```
+
+### ✓ Включена защита TLS и работают ACL
+
+**Проверка ACL:**
+```bash
+# Проверить ACL для топика shops_data
+docker exec yandex_kafka7-kafka-0-1 kafka-acls.sh \
+  --bootstrap-server kafka-0:9091 \
+  --list \
+  --command-config /opt/bitnami/kafka/config/client.properties
+```
+
+**Пользователи и права:**
+| Пользователь    | Пароль        | Роль            | Доступ                                      |
+|-----------------|---------------|-----------------|---------------------------------------------|
+| admin           | admin-secret  | Суперпользователь | Все операции, управление                     |
+| shop_client     | shop-secret   | Продюсер         | WRITE в `shops_data`                         |
+| analytic_client | analytic-secret| Консьюмер/Продюсер | READ из `requests`, WRITE в `recommendations`|
+| filter_client   | filter-secret  | Консьюмер        | READ из `shops_data`                         |
+| client          | client-secret  | CLI Пользователь  | READ из `recommendations`, WRITE в `requests`|
+
+### ✓ Реализована репликация топиков и задано минимальное число реплик
+
+**Проверка конфигурации топика:**
+```bash
+docker exec yandex_kafka7-kafka-0-1 kafka-topics.sh \
+  --bootstrap-server kafka-0:9091 \
+  --topic shops_data \
+  --describe \
+  --command-config /opt/bitnami/kafka/config/client.properties
+```
+
+Ожидаемый вывод:
+```
+Topic: shops_data	PartitionCount: 3	ReplicationFactor: 3	min.insync.replicas: 2
+```
+
+### ✓ Настроено дублирование данных во второй Kafka-кластер
+
+**Проверка топиков во втором кластере:**
+```bash
+docker exec yandex_kafka7-kafka-3-1 kafka-topics.sh \
+  --bootstrap-server kafka-3:9091 \
+  --list \
+  --command-config /opt/bitnami/kafka/config/client.properties
+```
+
+**Проверка логов MirrorMaker:**
+```bash
+docker compose logs mirror-maker | grep -i "replication"
+```
+
+### ✓ Выполнена фильтрация запрещенных товаров
+
+**Проверка отфильтрованных данных:**
+```bash
+# Просмотр файла с отфильтрованными товарами
+cat kafka-connect/output/filtered-products.txt
+
+# Проверка статуса коннектора
 ./scripts/connector-manager.sh status
+```
 
-# Просмотреть логи
-docker compose logs kafka-connect
+Фильтрация выполняется через Kafka Connect SMT (Single Message Transformer) на основе списка разрешенных product_id.
 
-# Просмотреть отфильтрованные данные
+### ✓ Данные после фильтрации записываются в систему хранения
+
+**Реализация:** Базовый вариант — запись в файл через Kafka Connect
+
+**Проверка:**
+```bash
+# Проверка файла с данными
+ls -lh kafka-connect/output/filtered-products.txt
+
+# Просмотр содержимого
 cat kafka-connect/output/filtered-products.txt
 ```
 
-### Топики Kafka Connect
+### ✓ Реализована аналитическая обработка данных
 
-| Топик            | Назначение                           |
-|------------------|--------------------------------------|
-| connect-configs  | Хранение конфигураций коннекторов    |
-| connect-offsets  | Хранение offset'ов коннекторов       |
-| connect-status   | Хранение статусов коннекторов        |
+**Реализация:** Базовый вариант — перенос данных в HDFS, аналитика рекомендаций
 
-## Мониторинг Kafka
-
-Проект включает полнофункциональную систему мониторинга с использованием Prometheus, Grafana и Alertmanager.
-
-### Структура файлов мониторинга
-
-В каталоге `monitoring/` расположены следующие файлы:
-
-| Файл | Назначение |
-|------|------------|
-| **prometheus.yml** | Конфигурация Prometheus - определяет откуда собирать метрики и интервалы сбора |
-| **alerts.yml** | Правила алертов - определяет условия для алертов (упавший брокер, офлайн партиции и т.д.) |
-| **alertmanager.yml** | Конфигурация Alertmanager - настройка маршрутизации и отправки уведомлений |
-| **grafana-dashboard.json** | Готовый дашборд Grafana с визуализацией метрик Kafka |
-| **grafana-datasources.yml** | Конфигурация datasource для Grafana (подключение к Prometheus) |
-| **jmx_exporter_config.yml** | Конфигурация JMX Exporter - какие метрики экспортировать из Kafka |
-| **Dockerfile.jmx-exporter** | Dockerfile для построения образа JMX Exporter |
-| **entrypoint.sh** | Entrypoint скрипт JMX Exporter - запускает экспорт метрик |
-| **start-monitoring.sh** | Скрипт для запуска всех сервисов мониторинга |
-| **stop-monitoring.sh** | Скрипт для остановки всех сервисов мониторинга |
-| **README.md** | Подробная документация по мониторингу |
-
-### Запуск мониторинга
-
+**Проверка:**
 ```bash
-# Запуск всех сервисов включая мониторинг
-docker compose up -d
+# Проверка логов аналитического сервиса
+docker compose logs analytic_client
 
-# Или через специальный скрипт
-./monitoring/start-monitoring.sh
+# Поиск запросов сохраненных в HDFS (если настроен)
+docker exec yandex_kafka7-hdfs-1 hdfs dfs -ls /kafka_data/requests
 ```
 
-Мониторинг автоматически запускается вместе с Kafka:
-- **JMX Exporters** - подключены к каждому брокеру как sidecar контейнеры
-- **Prometheus** - собирает метрики с всех брокеров обоих кластеров
-- **Alertmanager** - обрабатывает алерты и отправляет уведомления
-- **Grafana** - визуализирует метрики через дашборд
+### ✓ Рекомендации записываются в отдельный топик Kafka
 
-### Доступ к сервисам мониторинга
-
-| Сервис | URL | Логин/Пароль |
-|--------|-----|--------------|
-| **Prometheus** | http://localhost:9090 | - |
-| **Grafana** | http://localhost:3000 | admin/admin |
-| **Alertmanager** | http://localhost:9093 | - |
-
-### Основные метрики
-
-**Prometheus запросы:**
-
-```promql
-# Статус брокеров
-up{job=~"kafka-cluster-.*"}
-
-# Активные брокеры в кластере
-kafka_controller_kafkacontroller_activebrokercount
-
-# Недореплицированные партиции
-kafka_server_replicamanager_underreplicatedpartitions
-
-# Офлайн партиции
-kafka_server_replicamanager_offlinepartitionscount
-
-# Загрузка сети (байты/сек)
-rate(kafka_server_brokertopicmetrics_bytesinpersec_total[5m])
-rate(kafka_server_brokertopicmetrics_bytesoutpersec_total[5m])
-
-# Использование JVM памяти
-(jvm_memory_heap_bytes{area="heap"} / jvm_memory_heap_bytes_max{area="heap"}) * 100
-
-# Speed of requests
-rate(kafka_server_brokertopicmetrics_totalproducerequestspersec_total[5m])
-```
-
-### Настроенные алерты
-
-Созданы следующие алерты:
-
-| Название | Уровень | Условие | Описание |
-|----------|---------|---------|----------|
-| **KafkaBrokerDown** | critical | broker недоступен > 1 мин | Брокер упал и не отвечает |
-| **KafkaBrokerOfflinePartitionsCount** | critical | офлайн партиции > 0 | Партиции в офлайн состоянии |
-| **KafkaBrokerActiveControllerCount** | critical | нет активного контроллера > 2 мин | Потеря контроллера кластера |
-| **KafkaBrokerUnderReplicatedPartitions** | warning | недореплицированные партиции > 0 | Проблемы с репликацией |
-| **KafkaBrokerRequestHandlerIdle** | warning | idle < 10% > 10 мин | Нагрузка на обработчики запросов |
-| **KafkajvmMemoryHigh** | warning | память > 90% > 5 мин | Высокое использование памяти JVM |
-| **KafkaBrokerProducerRequestRateLow** | info | низкая скорость запросов | Низкая активность продюсеров |
-
-### Настройка email-оповещений
-
-Для получения email оповещений редактируйте `monitoring/alertmanager.yml`:
-
-```yaml
-global:
-  smtp_smarthost: "your-smtp-server:587"
-  smtp_from: "alertmanager@yourdomain.com"
-  smtp_auth_username: "your-smtp-username"
-  smtp_auth_password: "your-smtp-password"
-  smtp_require_tls: true
-```
-
-Замените email адреса в секции `receivers` на свои.
-
-### Проверка мониторинга
-
+**Проверка:**
 ```bash
-# Проверить статус JMX Exporter
-curl http://localhost:7071/metrics
-
-# Проверить статус Prometheus targets
-curl 'http://localhost:9090/api/v1/targets' | grep -A 2 "health"
-
-# Проверить метрики в Prometheus
-curl 'http://localhost:9090/api/v1/query?query=kafka_controller_kafkacontroller_activebrokercount'
-
-# Проверить алерты в Prometheus
-http://localhost:9090/alerts
-
-# Проверить логи сервисов
-docker compose logs prometheus
-docker compose logs alertmanager
-docker compose logs grafana
-docker logs kafka-0-jmx
+# Чтение рекомендаций из топика
+docker exec yandex_kafka7-kafka-0-1 kafka-console-consumer.sh \
+  --bootstrap-server kafka-0:9094 \
+  --topic recommendations \
+  --from-beginning \
+  --max-messages 3 \
+  --consumer.config /opt/bitnami/kafka/config/client.properties
 ```
 
-### Дашборды Grafana
+### ✓ Настроен мониторинг
 
-1. Откройте Grafana: http://localhost:3000
-2. Логин: admin, пароль: admin
-3. Дашборд "Kafka Monitoring Dashboard" автоматически provisioning при запуске
+**Дашборд Grafana:**
+1. Откройте http://localhost:3000
+2. Логин: `admin`, пароль: `admin`
+3. Перейдите в дашборд "Kafka Monitoring Dashboard"
 
 **Панели дашборда:**
 - Статус брокеров (онлайн/офлайн)
@@ -467,33 +426,181 @@ docker logs kafka-0-jmx
 - Использование JVM памяти
 - Загрузка request handler'ов
 - Статус активного контроллера
-- Латентность запросов
 
-### JMX и оба кластера
+**Алерты:**
+- `KafkaBrokerDown` (critical) — брокер недоступен > 1 мин
+- `KafkaBrokerOfflinePartitionsCount` (critical) — офлайн партиции > 0
+- `KafkaBrokerActiveControllerCount` (critical) — нет активного контроллера > 2 мин
+- `KafkaBrokerUnderReplicatedPartitions` (warning) — недореплицированные партиции > 0
+- `KafkaBrokerRequestHandlerIdle` (warning) — idle < 10% > 10 мин
+- `KafkajvmMemoryHigh` (warning) — память > 90% > 5 мин
 
-**Кластер 1:**
-- kafka-0-jmx: localhost:7071
-- kafka-1-jmx: localhost:7072
-- kafka-2-jmx: localhost:7073
+**Метрики собираются через:**
+- Prometheus (сбор метрик)
+- JMX Exporter (экспорт метрик JVM Kafka с портов 7071-7076)
 
-**Кластер 2:**
-- kafka-3-jmx: localhost:7074
-- kafka-4-jmx: localhost:7075
-- kafka-5-jmx: localhost:7076
+## Структура проекта
 
-Прямой доступ к метрикам:
-```bash
-curl http://localhost:7071/metrics  # kafka-0
-curl http://localhost:7072/metrics  # kafka-1
-# и т.д.
 ```
-
-### Полная документация
-
-Подробная документация по мониторингу: [monitoring/README.md](monitoring/README.md)
+yandex_kafka7/
+├── cmd/                          # Точки входа приложений
+│   ├── shop/                     # SHOP API — отправка товаров
+│   ├── analytic_client/          # Аналитический сервис
+│   └── client/                   # CLIENT API — поиск и рекомендации
+├── internal/
+│   ├── application/              # Логика приложений
+│   │   ├── app.go               # ProducerApp и ConsumerApp
+│   │   ├── config/              # Конфигурация из переменных окружения
+│   │   └── interfaces.go        # Интерфейсы для зависимостей
+│   ├── domain/                   # Бизнес-логика и сущности
+│   │   └── product.go           # Product, Recommendation, Request
+│   ├── infra/                    # Инфраструктурный слой
+│   │   └── clients/
+│   │       ├── kafka/           # Kafka продюсер и консьюмер
+│   │       └── hdfs/            # HDFS клиенты
+│   ├── cli/                      # CLI клиент
+│   └── logger/                   # Логгер на базе zap
+├── kafka-connect/                # Kafka Connect плагин фильтрации
+│   ├── ProductFilterTransformer.java
+│   └── plugins/lib/             # Скомпилированный JAR
+├── scripts/                     # Скрипты настройки
+│   ├── setup-all.sh
+│   ├── setup-target-cluster-acls.sh
+│   ├── setup-kafka-connect.sh
+│   ├── connector-manager.sh
+│   ├── manage-products.sh
+│   ├── schema-manager.sh
+│   └── test-replication.sh
+├── monitoring/                  # Конфигурации мониторинга
+│   ├── prometheus.yml
+│   ├── alerts.yml
+│   ├── alertmanager.yml
+│   ├── grafana-dashboard.json
+│   └── jmx_exporter_config.yml
+├── products_source.json        # Источник данных товаров
+├── kafka-connect/output/       # Файлы с отфильтрованными данными
+├── docker-compose.yml          # Композиция сервисов
+└── README.md                   # Этот файл
+```
 
 ## Остановка сервисов
 
 ```bash
+# Остановка всех сервисов
 docker compose down
+
+# Остановка с удалением томов (перезапуск с чистого листа)
+docker compose down -v
 ```
+
+## Устранение проблем
+
+### Брокеры не запускаются
+
+```bash
+# Проверить логи брокеров
+docker compose logs kafka-0 kafka-1 kafka-2
+
+# Проверить инициализацию кластера
+docker compose logs zookeeper-server
+```
+
+### MirrorMaker не реплицирует данные
+
+```bash
+# Проверить логи MirrorMaker
+docker compose logs mirror-maker
+
+# Проверить ACL во втором кластере
+docker exec yandex_kafka7-kafka-3-1 kafka-acls.sh \
+  --bootstrap-server kafka-3:9091 \
+  --list \
+  --command-config /opt/bitnami/kafka/config/client.properties
+```
+
+### Kafka Connect не записывает данные
+
+```bash
+# Проверить логи Connect
+docker compose logs kafka-connect
+
+# Проверить статус коннектора
+./scripts/connector-manager.sh status
+
+# Проверить список разрешенных товаров
+./scripts/manage-products.sh list
+```
+
+### Нет метрик в Prometheus
+
+```bash
+# Проверить работоспособность JMX Exporter
+curl http://localhost:7071/metrics
+
+# Проверить логи Prometheus
+docker compose logs prometheus
+
+# Проверить статус targets в Prometheus
+curl http://localhost:9090/api/v1/targets
+```
+
+## Полезные команды
+
+### Работа с Kafka
+
+```bash
+# Просмотр топиков
+docker exec yandex_kafka7-kafka-0-1 kafka-topics.sh \
+  --bootstrap-server kafka-0:9091 \
+  --list \
+  --command-config /opt/bitnami/kafka/config/client.properties
+
+# Просмотр информации о топике
+docker exec yandex_kafka7-kafka-0-1 kafka-topics.sh \
+  --bootstrap-server kafka-0:9091 \
+  --topic shops_data \
+  --describe \
+  --command-config /opt/bitnami/kafka/config/client.properties
+
+# Чтение сообщений из топика
+docker exec yandex_kafka7-kafka-0-1 kafka-console-consumer.sh \
+  --bootstrap-server kafka-0:9094 \
+  --topic shops_data \
+  --from-beginning \
+  --max-messages 10 \
+  --consumer.config /opt/bitnami/kafka/config/client.properties
+```
+
+### Проверка ACL
+
+```bash
+# Просмотр всех ACL
+docker exec yandex_kafka7-kafka-0-1 kafka-acls.sh \
+  --bootstrap-server kafka-0:9091 \
+  --list \
+  --command-config /opt/bitnami/kafka/config/client.properties
+
+# Просмотр ACL для конкретного пользователя
+docker exec yandex_kafka7-kafka-0-1 kafka-acls.sh \
+  --bootstrap-server kafka-0:9091 \
+  --list --principal User:shop_client \
+  --command-config /opt/bitnami/kafka/config/client.properties
+```
+
+### Мониторинг
+
+```bash
+# Запрос метрик через Prometheus API
+curl 'http://localhost:9090/api/v1/query?query=kafka_server_replicamanager_underreplicatedpartitions'
+
+curl 'http://localhost:9090/api/v1/query?query=kafka_controller_kafkacontroller_activebrokercount'
+
+# Просмотр активных алертов
+curl http://localhost:9090/api/v1/alerts
+```
+
+## Дополнительная информация
+
+- Подробная документация по мониторингу: [monitoring/README.md](monitoring/README.md)
+- Документация по скриптам: [scripts/README.md](scripts/README.md)
+- Конфигурация Kafka Connect: [kafka-connect/README.md](kafka-connect/README.md)

@@ -1,3 +1,4 @@
+// Package hdfs предоставляет клиент для работы с HDFS через библиотеку colinmarc/hdfs/v2.
 package hdfs
 
 import (
@@ -11,12 +12,14 @@ import (
 	"github.com/zYoma/yandex_kafka7/internal/logger"
 )
 
+// HDFSWriter реализует запись данных в HDFS через нативный клиент.
 type HDFSWriter struct {
 	client    *hdfs.Client
 	basePath  string
 	batchSize int
 }
 
+// HDFSWriterConfig содержит конфигурацию для подключения к HDFS.
 type HDFSWriterConfig struct {
 	Addresses string
 	Port      string
@@ -24,6 +27,7 @@ type HDFSWriterConfig struct {
 	BatchSize int
 }
 
+// NewHDFSWriter создает новый клиент HDFS с указанной конфигурацией.
 func NewHDFSWriter(cfg *HDFSWriterConfig) (*HDFSWriter, error) {
 	client, err := hdfs.NewClient(hdfs.ClientOptions{
 		Addresses: strings.Split(cfg.Addresses, ","),
@@ -51,6 +55,7 @@ func NewHDFSWriter(cfg *HDFSWriterConfig) (*HDFSWriter, error) {
 	}, nil
 }
 
+// WriteRequestData записывает данные запроса в файл в HDFS с уникальным именем на основе timestamp.
 func (w *HDFSWriter) WriteRequestData(ctx context.Context, data []byte, filename string) error {
 	logger.Get().Sugar().Infof("Запись данных запроса в HDFS: %s", filename)
 
@@ -76,6 +81,7 @@ func (w *HDFSWriter) WriteRequestData(ctx context.Context, data []byte, filename
 	return nil
 }
 
+// Close закрывает соединение с HDFS.
 func (w *HDFSWriter) Close() error {
 	if w.client != nil {
 		return w.client.Close()

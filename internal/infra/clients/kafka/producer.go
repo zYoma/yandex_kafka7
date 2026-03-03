@@ -1,3 +1,4 @@
+// Package kafka предоставляет реализацию Kafka продюсера.
 package kafka
 
 import (
@@ -13,7 +14,7 @@ import (
 	"github.com/zYoma/yandex_kafka7/internal/logger"
 )
 
-// KafkaProducer структура клиента
+// KafkaProducer реализует интерфейс Producer для отправки сообщений в Kafka.
 type KafkaProducer struct {
 	Producer     *kafka.Producer
 	Serializer   *avrov2.Serializer

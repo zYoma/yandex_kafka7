@@ -1,3 +1,4 @@
+// Package application предоставляет приложения ProducerApp и ConsumerApp для работы с Kafka.
 package application
 
 import (
@@ -14,12 +15,14 @@ import (
 var ErrAppStopped = errors.New("app stoped")
 
 // ProducerApp представляет приложение продюсер.
+// ProducerApp представляет приложение-продюсер для отправки сообщений в Kafka.
 type ProducerApp struct {
 	Producer interfaces.Producer
 	Config   *config.Config
 }
 
 // ConsumerApp представляет приложение консьюмер.
+// ConsumerApp представляет приложение-консьюмер для чтения сообщений из Kafka.
 type ConsumerApp struct {
 	Consumer   interfaces.Consumer
 	Config     *config.Config
@@ -51,6 +54,7 @@ func NewConsumerWithHDFS(cfg *config.Config, consumer interfaces.Consumer, hdfsC
 	}
 }
 
+// Run запускает продюсер для отправки товаров из файла в Kafka.
 func (p *ProducerApp) Run(ctx context.Context) error {
 	logger.Get().Info("run producer")
 	err := domain.SendProductsFromFile(ctx, p.Producer, p.Config.Topic, p.Config.ProductsSourceFile)
@@ -60,6 +64,7 @@ func (p *ProducerApp) Run(ctx context.Context) error {
 	return nil
 }
 
+// Run запускает консьюмер для чтения сообщений из Kafka в пакетном режиме.
 func (c *ConsumerApp) Run(ctx context.Context) error {
 	logger.Get().Sugar().Infof("run consumer, group_id: %v, topic: %v, hdfs_enabled=%v", c.Config.GroupId, c.Config.Topic, c.HDFSClient != nil)
 

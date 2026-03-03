@@ -1,3 +1,4 @@
+// Package main содержит точку входа для продюсера товаров в Kafka.
 package main
 
 import (
@@ -12,6 +13,7 @@ import (
 	"github.com/zYoma/yandex_kafka7/internal/logger"
 )
 
+// main запускает продюсер товаров, отправляет товары из файла в Kafka топик.
 func main() {
 
 	// получаем конфигурацию продюсера

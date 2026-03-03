@@ -1,3 +1,4 @@
+// Package kafka предоставляет утилиты для работы с Kafka и Schema Registry.
 package kafka
 
 import (
@@ -9,7 +10,7 @@ import (
 	"github.com/zYoma/yandex_kafka7/internal/application/config"
 )
 
-// GetDeserializer получаем десериализатор для Avro из Schema Registry
+// GetDeserializer создает десериализатор Avro для Schema Registry.
 func GetDeserializer(cfg *config.Config) (*avrov2.Deserializer, error) {
 	// Конфигурация для Schema Registry
 	srClient, err := schemaregistry.NewClient(schemaregistry.NewConfig(cfg.SchemaRegistryServiceURL))
@@ -26,7 +27,7 @@ func GetDeserializer(cfg *config.Config) (*avrov2.Deserializer, error) {
 	return deser, nil
 }
 
-// GetSerializer получаем сериализатор для Avro из Schema Registry
+// GetSerializer создает сериализатор Avro для Schema Registry.
 func GetSerializer(cfg *config.Config) (*avrov2.Serializer, error) {
 	// Конфигурация для Schema Registry
 	srClient, err := schemaregistry.NewClient(schemaregistry.NewConfig(cfg.SchemaRegistryServiceURL))

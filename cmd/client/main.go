@@ -1,3 +1,4 @@
+// Package main содержит точку входа для CLI клиента.
 package main
 
 import (
@@ -11,6 +12,7 @@ import (
 	"github.com/zYoma/yandex_kafka7/internal/infra/clients/kafka"
 )
 
+// main запускает CLI клиент для поиска товаров и получения рекомендаций.
 func main() {
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -67,6 +69,7 @@ func main() {
 	}
 }
 
+// printUsage выводит справку о использовании CLI клиента.
 func printUsage() {
 	fmt.Println("Kafka CLI Client")
 	fmt.Println("\nUsage:")

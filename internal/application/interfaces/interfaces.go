@@ -1,3 +1,4 @@
+// Package interfaces определяет абстракции для работы с Kafka и HDFS.
 package interfaces
 
 import (
