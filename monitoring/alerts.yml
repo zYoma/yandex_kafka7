@@ -1,0 +1,73 @@
+groups:
+  - name: kafka_broker_alerts
+    interval: 30s
+    rules:
+      - alert: KafkaBrokerDown
+        expr: up{job=~"kafka-cluster-.*"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: kafka
+        annotations:
+          summary: "Kafka broker is down (instance {{ $labels.instance }})"
+          description: "Kafka broker {{ $labels.instance }} has been down for more than 1 minute."
+
+      - alert: KafkaBrokerUnderReplicatedPartitions
+        expr: kafka_server_ReplicaManager_UnderReplicatedPartitions > 0
+        for: 5m
+        labels:
+          severity: warning
+          team: kafka
+        annotations:
+          summary: "Kafka broker has under-replicated partitions (instance {{ $labels.instance }})"
+          description: "Broker {{ $labels.instance }} has {{ $value }} under-replicated partitions for more than 5 minutes."
+
+      - alert: KafkaBrokerOfflinePartitionsCount
+        expr: kafka_server_ReplicaManager_OfflinePartitionsCount > 0
+        for: 1m
+        labels:
+          severity: critical
+          team: kafka
+        annotations:
+          summary: "Kafka broker has offline partitions (instance {{ $labels.instance }})"
+          description: "Broker {{ $labels.instance }} has {{ $value }} offline partitions for more than 1 minute."
+
+      - alert: KafkaBrokerActiveControllerCount
+        expr: kafka_controller_KafkaController_ActiveControllerCount == 0
+        for: 2m
+        labels:
+          severity: critical
+          team: kafka
+        annotations:
+          summary: "Kafka cluster has no active controller"
+          description: "No active controller in Kafka cluster for more than 2 minutes."
+
+      - alert: KafkaBrokerRequestHandlerIdle
+        expr: kafka_request_handler_AvgIdlePercent < 10
+        for: 10m
+        labels:
+          severity: warning
+          team: kafka
+        annotations:
+          summary: "Kafka broker request handlers are overloaded (instance {{ $labels.instance }})"
+          description: "Broker {{ $labels.instance }} average idle percent is {{ $value }}% for more than 10 minutes."
+
+      - alert: KafkajvmMemoryHigh
+        expr: jvm_memory_heap_bytes{area="heap"} / jvm_memory_heap_bytes_max{area="heap"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          team: kafka
+        annotations:
+          summary: "Kafka JVM heap memory usage high (instance {{ $labels.instance }})"
+          description: "Broker {{ $labels.instance }} heap memory usage is {{ $value | humanizePercentage }} for more than 5 minutes."
+
+      - alert: KafkaBrokerProducerRequestRateLow
+        expr: rate(kafka_server_BrokerTopicMetrics_BytesInPerSec_total[5m]) < 100
+        for: 15m
+        labels:
+          severity: info
+          team: kafka
+        annotations:
+          summary: "Low producer request rate (instance {{ $labels.instance }})"
+          description: "Broker {{ $labels.instance }} producer request rate is low: {{ $value }} bytes/sec for more than 15 minutes."

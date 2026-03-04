@@ -1,0 +1,9 @@
+target/
+.mvn/
+mvnw
+mvnw.cmd
+.classpath
+.project
+.settings/
+*.class
+!product-filter-transformer-*.jar

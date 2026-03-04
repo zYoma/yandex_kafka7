@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:schemas:product",
+  "title": "Product",
+  "description": "Schema for product data",
+  "type": "object",
+  "properties": {
+    "product_id": {
+      "type": "string",
+      "description": "Unique product identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Product name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Product description"
+    },
+    "price": {
+      "type": "object",
+      "description": "Price information",
+      "properties": {
+        "amount": {
+          "type": "number",
+          "description": "Price amount"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency code (e.g., RUB, USD, EUR)"
+        }
+      },
+      "required": ["amount", "currency"]
+    },
+    "category": {
+      "type": "string",
+      "description": "Product category"
+    },
+    "brand": {
+      "type": "string",
+      "description": "Product brand"
+    },
+    "stock": {
+      "type": "object",
+      "description": "Stock information",
+      "properties": {
+        "available": {
+          "type": "integer",
+          "description": "Available quantity in stock"
+        },
+        "reserved": {
+          "type": "integer",
+          "description": "Reserved quantity"
+        }
+      }
+    },
+    "sku": {
+      "type": "string",
+      "description": "Stock Keeping Unit"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Product tags"
+    },
+    "images": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "alt": {
+            "type": "string"
+          }
+        }
+      },
+      "description": "Product images"
+    },
+    "specifications": {
+      "type": "object",
+      "description": "Product specifications (key-value pairs)"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation timestamp in ISO 8601 format"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last update timestamp in ISO 8601 format"
+    },
+    "index": {
+      "type": "string",
+      "description": "Index name for search purposes"
+    },
+    "store_id": {
+      "type": "string",
+      "description": "Store identifier"
+    }
+  },
+  "required": ["product_id", "name"]
+}

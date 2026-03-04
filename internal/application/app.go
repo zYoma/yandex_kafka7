@@ -1,0 +1,72 @@
+// Package application предоставляет приложения ProducerApp и ConsumerApp для работы с Kafka.
+package application
+
+import (
+	"context"
+	"errors"
+
+	"github.com/zYoma/yandex_kafka7/internal/application/config"
+	"github.com/zYoma/yandex_kafka7/internal/application/interfaces"
+	"github.com/zYoma/yandex_kafka7/internal/domain"
+	"github.com/zYoma/yandex_kafka7/internal/logger"
+)
+
+// ErrAppStopped возникает при остановке приложения.
+var ErrAppStopped = errors.New("app stoped")
+
+// ProducerApp представляет приложение продюсер.
+// ProducerApp представляет приложение-продюсер для отправки сообщений в Kafka.
+type ProducerApp struct {
+	Producer interfaces.Producer
+	Config   *config.Config
+}
+
+// ConsumerApp представляет приложение консьюмер.
+// ConsumerApp представляет приложение-консьюмер для чтения сообщений из Kafka.
+type ConsumerApp struct {
+	Consumer   interfaces.Consumer
+	Config     *config.Config
+	HDFSClient interfaces.HDFSClient
+}
+
+// NewProducer создаёт новое приложение продюсер с настройками из конфигурации.
+func NewProducer(cfg *config.Config, producer interfaces.Producer) *ProducerApp {
+	return &ProducerApp{
+		Producer: producer,
+		Config:   cfg,
+	}
+}
+
+// NewConsumer создаёт новое приложение консьюмер с настройками из конфигурации.
+func NewConsumer(cfg *config.Config, consumer interfaces.Consumer) *ConsumerApp {
+	return &ConsumerApp{
+		Consumer: consumer,
+		Config:   cfg,
+	}
+}
+
+// NewConsumerWithHDFS создаёт новое приложение консьюмер с HDFS клиентом.
+func NewConsumerWithHDFS(cfg *config.Config, consumer interfaces.Consumer, hdfsClient interfaces.HDFSClient) *ConsumerApp {
+	return &ConsumerApp{
+		Consumer:   consumer,
+		Config:     cfg,
+		HDFSClient: hdfsClient,
+	}
+}
+
+// Run запускает продюсер для отправки товаров из файла в Kafka.
+func (p *ProducerApp) Run(ctx context.Context) error {
+	logger.Get().Info("run producer")
+	err := domain.SendProductsFromFile(ctx, p.Producer, p.Config.Topic, p.Config.ProductsSourceFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Run запускает консьюмер для чтения сообщений из Kafka в пакетном режиме.
+func (c *ConsumerApp) Run(ctx context.Context) error {
+	logger.Get().Sugar().Infof("run consumer, group_id: %v, topic: %v, hdfs_enabled=%v", c.Config.GroupId, c.Config.Topic, c.HDFSClient != nil)
+
+	return c.Consumer.StartBatchMessage(ctx)
+}

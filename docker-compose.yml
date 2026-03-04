@@ -1,0 +1,534 @@
+x-env-common: &env-common
+  KAFKA_ENABLE_KRAFT: "yes"
+  KAFKA_CFG_PROCESS_ROLES: broker,controller
+  KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+  KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:SASL_SSL,BROKER:SASL_SSL,EXTERNAL:SASL_SSL
+  KAFKA_CFG_INTER_BROKER_LISTENER_NAME: BROKER
+  KAFKA_CFG_SASL_MECHANISM_CONTROLLER_PROTOCOL: PLAIN
+  KAFKA_CFG_SASL_MECHANISM_INTER_BROKER_PROTOCOL: PLAIN
+  KAFKA_CFG_SASL_ENABLED_MECHANISMS: PLAIN
+  KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_CONTROLLER: PLAIN
+  KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_BROKER: PLAIN
+  KAFKA_CFG_LISTENER_NAME_SASL_ENABLED_MECHANISMS_EXTERNAL: PLAIN
+  KAFKA_CFG_AUTHORIZER_CLASS_NAME: org.apache.kafka.metadata.authorizer.StandardAuthorizer
+  KAFKA_CFG_SUPER_USERS: User:admin
+  KAFKA_CFG_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false"
+  KAFKA_TLS_TYPE: jks
+  KAFKA_CFG_SSL_KEYSTORE_PASSWORD: password
+  KAFKA_CFG_SSL_TRUSTSTORE_PASSWORD: password
+  KAFKA_CFG_SSL_KEY_PASSWORD: password
+  KAFKA_CFG_SSL_CLIENT_AUTH: none
+  KAFKA_CLIENT_USERS: admin,user,shop_client,analytic_client,filter_client,client
+  KAFKA_CLIENT_PASSWORDS: admin-secret,user-secret,shop-secret,analytic-secret,filter-secret,client-secret
+  KAFKA_CONTROLLER_USER: admin
+  KAFKA_CONTROLLER_PASSWORD: admin-secret
+
+x-service-common: &service-common
+  image: bitnamilegacy/kafka:3.4
+  networks:
+    - kafka-network
+  volumes:
+    - ./kafka-creds/client.properties:/opt/bitnami/kafka/config/client.properties:ro
+
+services:
+  kafka-0:
+    <<: *service-common
+    ports:
+      - "9094:9094"
+      - "9999:9999"
+    environment:
+      <<: *env-common
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      KAFKA_KRAFT_CLUSTER_ID: abcdefghijklmnopqrstuv
+      KAFKA_CFG_LISTENERS: CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9094
+      KAFKA_CFG_ADVERTISED_LISTENERS: BROKER://kafka-0:9091,EXTERNAL://kafka-0:9094
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka-0"
+    volumes:
+      - kafka_0_data:/bitnami/kafka
+      - ./kafka-creds/kafka-0-creds:/bitnami/kafka/config/certs
+
+  kafka-0-jmx:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.jmx-exporter
+    container_name: kafka-0-jmx
+    ports:
+      - "7071:7071"
+    environment:
+      - JMX_HOST=kafka-0
+      - JMX_PORT=9999
+      - JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+    volumes:
+      - ./monitoring/jmx_exporter_config.yml:/opt/jmx-exporter/config.yml:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-0
+
+  kafka-1:
+    <<: *service-common
+    ports:
+      - "9095:9095"
+      - "9998:9999"
+    environment:
+      <<: *env-common
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      KAFKA_KRAFT_CLUSTER_ID: abcdefghijklmnopqrstuv
+      KAFKA_CFG_LISTENERS: CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9095
+      KAFKA_CFG_ADVERTISED_LISTENERS: BROKER://kafka-1:9091,EXTERNAL://kafka-1:9095
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka-1"
+    volumes:
+      - kafka_1_data:/bitnami/kafka
+      - ./kafka-creds/kafka-1-creds:/bitnami/kafka/config/certs
+
+  kafka-1-jmx:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.jmx-exporter
+    container_name: kafka-1-jmx
+    ports:
+      - "7072:7071"
+    environment:
+      - JMX_HOST=kafka-1
+      - JMX_PORT=9999
+      - JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+    volumes:
+      - ./monitoring/jmx_exporter_config.yml:/opt/jmx-exporter/config.yml:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-1
+
+  kafka-2:
+    <<: *service-common
+    ports:
+      - "9096:9096"
+      - "9997:9999"
+    environment:
+      <<: *env-common
+      KAFKA_CFG_NODE_ID: 2
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      KAFKA_KRAFT_CLUSTER_ID: abcdefghijklmnopqrstuv
+      KAFKA_CFG_LISTENERS: CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9096
+      KAFKA_CFG_ADVERTISED_LISTENERS: BROKER://kafka-2:9091,EXTERNAL://kafka-2:9096
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka-2"
+    volumes:
+      - kafka_2_data:/bitnami/kafka
+      - ./kafka-creds/kafka-2-creds:/bitnami/kafka/config/certs
+
+  kafka-2-jmx:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.jmx-exporter
+    container_name: kafka-2-jmx
+    ports:
+      - "7073:7071"
+    environment:
+      - JMX_HOST=kafka-2
+      - JMX_PORT=9999
+      - JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+    volumes:
+      - ./monitoring/jmx_exporter_config.yml:/opt/jmx-exporter/config.yml:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-2
+
+  kafka-3:
+    <<: *service-common
+    ports:
+      - "9097:9094"
+      - "9996:9999"
+    environment:
+      <<: *env-common
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka-3:9093,1@kafka-4:9093,2@kafka-5:9093
+      KAFKA_KRAFT_CLUSTER_ID: X4qbPcTiSofpt9Hj2fmKtA==
+      KAFKA_CFG_LISTENERS: CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9094
+      KAFKA_CFG_ADVERTISED_LISTENERS: BROKER://kafka-3:9091,EXTERNAL://kafka-3:9094
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka-3"
+    volumes:
+      - kafka_3_data:/bitnami/kafka
+      - ./kafka-creds/kafka-3-creds:/bitnami/kafka/config/certs
+
+  kafka-3-jmx:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.jmx-exporter
+    container_name: kafka-3-jmx
+    ports:
+      - "7074:7071"
+    environment:
+      - JMX_HOST=kafka-3
+      - JMX_PORT=9999
+      - JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+    volumes:
+      - ./monitoring/jmx_exporter_config.yml:/opt/jmx-exporter/config.yml:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-3
+
+  kafka-4:
+    <<: *service-common
+    ports:
+      - "9098:9095"
+      - "9995:9999"
+    environment:
+      <<: *env-common
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka-3:9093,1@kafka-4:9093,2@kafka-5:9093
+      KAFKA_KRAFT_CLUSTER_ID: X4qbPcTiSofpt9Hj2fmKtA==
+      KAFKA_CFG_LISTENERS: CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9095
+      KAFKA_CFG_ADVERTISED_LISTENERS: BROKER://kafka-4:9091,EXTERNAL://kafka-4:9095
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka-4"
+    volumes:
+      - kafka_4_data:/bitnami/kafka
+      - ./kafka-creds/kafka-4-creds:/bitnami/kafka/config/certs
+
+  kafka-4-jmx:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.jmx-exporter
+    container_name: kafka-4-jmx
+    ports:
+      - "7075:7071"
+    environment:
+      - JMX_HOST=kafka-4
+      - JMX_PORT=9999
+      - JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+    volumes:
+      - ./monitoring/jmx_exporter_config.yml:/opt/jmx-exporter/config.yml:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-4
+
+  kafka-5:
+    <<: *service-common
+    ports:
+      - "9099:9096"
+      - "9994:9999"
+    environment:
+      <<: *env-common
+      KAFKA_CFG_NODE_ID: 2
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka-3:9093,1@kafka-4:9093,2@kafka-5:9093
+      KAFKA_KRAFT_CLUSTER_ID: X4qbPcTiSofpt9Hj2fmKtA==
+      KAFKA_CFG_LISTENERS: CONTROLLER://:9093,BROKER://:9091,EXTERNAL://:9096
+      KAFKA_CFG_ADVERTISED_LISTENERS: BROKER://kafka-5:9091,EXTERNAL://kafka-5:9096
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.port=9999 -Dcom.sun.management.jmxremote.rmi.port=9999 -Djava.rmi.server.hostname=kafka-5"
+    volumes:
+      - kafka_5_data:/bitnami/kafka
+      - ./kafka-creds/kafka-5-creds:/bitnami/kafka/config/certs
+
+  kafka-5-jmx:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile.jmx-exporter
+    container_name: kafka-5-jmx
+    ports:
+      - "7076:7071"
+    environment:
+      - JMX_HOST=kafka-5
+      - JMX_PORT=9999
+      - JMX_EXPORTER_CONFIG_FILE=/opt/jmx-exporter/config.yml
+    volumes:
+      - ./monitoring/jmx_exporter_config.yml:/opt/jmx-exporter/config.yml:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-5
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.9.5
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+    ports:
+        - "8081:8081"
+    environment:
+        - SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=SASL_SSL://kafka-0:9094,SASL_SSL://kafka-1:9095,SASL_SSL://kafka-2:9096
+        - SCHEMA_REGISTRY_HOST_NAME=schema-registry
+        - SCHEMA_REGISTRY_LISTENERS=http://0.0.0.0:8081
+        - SCHEMA_REGISTRY_KAFKASTORE_SECURITY_PROTOCOL=SASL_SSL
+        - SCHEMA_REGISTRY_KAFKASTORE_SASL_MECHANISM=PLAIN
+        - SCHEMA_REGISTRY_KAFKASTORE_SASL_JAAS_CONFIG=org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="admin-secret";
+        - SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_LOCATION=/kafka-creds/kafka.truststore.jks
+        - SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_PASSWORD=password
+        - SCHEMA_REGISTRY_KAFKASTORE_SSL_TRUSTSTORE_TYPE=PKCS12
+        - SCHEMA_REGISTRY_KAFKASTORE_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM=
+    networks:
+        - kafka-network
+    volumes:
+        - schema-registry-data:/var/lib/schema-registry
+        - ./kafka-creds/kafka-0-creds:/kafka-creds
+
+  mirror-maker:
+    image: bitnamilegacy/kafka:3.4
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+      - kafka-3
+      - kafka-4
+      - kafka-5
+    command: /opt/bitnami/kafka/bin/connect-mirror-maker.sh /opt/bitnami/kafka/config/mirror-maker.properties
+    networks:
+        - kafka-network
+    volumes:
+        - mirror-maker-data:/tmp/kafka/connect
+        - ./mirror-maker.properties:/opt/bitnami/kafka/config/mirror-maker.properties:ro
+        - ./kafka-creds/kafka-0-creds:/kafka-creds/source
+        - ./kafka-creds/kafka-3-creds:/kafka-creds/target
+
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:7.7.1
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+      - schema-registry
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: "kafka-0:9094,kafka-1:9095,kafka-2:9096"
+      CONNECT_REST_PORT: 8083
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_GROUP_ID: "connect-cluster"
+      CONNECT_CONFIG_STORAGE_TOPIC: "connect-configs"
+      CONNECT_OFFSET_STORAGE_TOPIC: "connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "connect-status"
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+      CONNECT_SECURITY_PROTOCOL: "SASL_SSL"
+      CONNECT_SASL_MECHANISM: "PLAIN"
+      CONNECT_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"admin-secret\";"
+      CONNECT_SSL_TRUSTSTORE_LOCATION: "/kafka-creds/kafka.truststore.jks"
+      CONNECT_SSL_TRUSTSTORE_PASSWORD: "password"
+      CONNECT_SSL_TRUSTSTORE_TYPE: "JKS"
+      CONNECT_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
+      CONNECT_CONSUMER_SECURITY_PROTOCOL: "SASL_SSL"
+      CONNECT_CONSUMER_SASL_MECHANISM: "PLAIN"
+      CONNECT_CONSUMER_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"filter_client\" password=\"filter-secret\";"
+      CONNECT_CONSUMER_SSL_TRUSTSTORE_LOCATION: "/kafka-creds/kafka.truststore.jks"
+      CONNECT_CONSUMER_SSL_TRUSTSTORE_PASSWORD: "password"
+      CONNECT_CONSUMER_SSL_TRUSTSTORE_TYPE: "JKS"
+      CONNECT_CONSUMER_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
+      CONNECT_PRODUCER_SECURITY_PROTOCOL: "SASL_SSL"
+      CONNECT_PRODUCER_SASL_MECHANISM: "PLAIN"
+      CONNECT_PRODUCER_SASL_JAAS_CONFIG: "org.apache.kafka.common.security.plain.PlainLoginModule required username=\"admin\" password=\"admin-secret\";"
+      CONNECT_PRODUCER_SSL_TRUSTSTORE_LOCATION: "/kafka-creds/kafka.truststore.jks"
+      CONNECT_PRODUCER_SSL_TRUSTSTORE_PASSWORD: "password"
+      CONNECT_PRODUCER_SSL_TRUSTSTORE_TYPE: "JKS"
+      CONNECT_PRODUCER_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: ""
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/kafka-connect-plugins"
+    networks:
+      - kafka-network
+    volumes:
+      - kafka-connect-data:/var/lib/kafka-connect
+      - ./kafka-creds/kafka-0-creds:/kafka-creds
+      - ./kafka-connect/plugins:/kafka-connect-plugins
+      - ./kafka-connect/allowed-products.json:/etc/kafka-connect/allowed-products.json:ro
+      - ./kafka-connect/output:/data/output
+
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
+    networks:
+      - kafka-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.2.4
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/kafka-dashboard.json:ro
+      - ./monitoring/grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/provision-dashboards.yml:ro
+      - ./monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+    depends_on:
+      - prometheus
+    networks:
+      - kafka-network
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+      - "--web.external-url=http://localhost:9093"
+      - "--cluster.listen-address="
+      - "--cluster.advertise-address="
+      - "--cluster.peer="
+    networks:
+      - kafka-network
+    restart: unless-stopped
+  
+  shop:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host
+    command: ["/bin/sh", "-c", "sleep 10 && /app/yandex-kafka shop"]
+    env_file:
+      - ./.env.shop
+    volumes:
+      - ./kafka-creds:/app/ca
+      - ./products_source.json:/app/products_source.json
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env.client
+    volumes:
+      - ./kafka-creds:/app/ca
+      - ./kafka-connect/output/filtered-products.txt:/app/filtered-products.txt:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+    stdin_open: true
+    tty: true
+
+  analytic_client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["/bin/sh", "-c", "sleep 15 && /app/yandex-kafka-analytic"]
+    env_file:
+      - ./.env.analytic_client
+    volumes:
+      - ./kafka-creds/kafka-3-creds:/app/ca:ro
+    networks:
+      - kafka-network
+    depends_on:
+      - kafka-3
+      - kafka-4
+      - kafka-5
+      - namenode
+      - datanode
+
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: namenode
+    environment:
+      - CLUSTER_NAME=test
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+    env_file:
+      - ./hadoop.env
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    networks:
+      - kafka-network
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: datanode
+    environment:
+      - CLUSTER_NAME=test
+      - CORE_CONF_fs_defaultFS=hdfs://namenode:9000
+    env_file:
+      - ./hadoop.env
+    ports:
+      - "9864:9864"
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    networks:
+      - kafka-network
+    depends_on:
+      - namenode
+
+  spark-master:
+    image: apache/spark:3.5.0-python3
+    container_name: spark-master
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    environment:
+      - SPARK_MASTER_HOST=spark-master
+      - SPARK_MASTER_PORT=7077
+    volumes:
+      - ./spark-analytics:/opt/spark/jobs
+    networks:
+      - kafka-network
+    depends_on:
+      - namenode
+      - datanode
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+
+  spark-worker:
+    image: apache/spark:3.5.0-python3
+    ports:
+      - "18081:8081"
+    environment:
+      - SPARK_WORKER_MEMORY=1g
+      - SPARK_WORKER_CORES=1
+    networks:
+      - kafka-network
+    depends_on:
+      - spark-master
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+
+volumes:
+  kafka_0_data:
+  kafka_1_data:
+  kafka_2_data:
+  kafka_3_data:
+  kafka_4_data:
+  kafka_5_data:
+  schema-registry-data:
+  mirror-maker-data:
+  kafka-connect-data:
+  prometheus-data:
+  grafana-data:
+  alertmanager-data:
+  hadoop_namenode:
+  hadoop_datanode:
+
+networks:
+  kafka-network:
+    driver: bridge
